@@ -16,7 +16,7 @@ export function SettingsScreen() {
 				{(["km", "mi"] as const).map((option) => (
 					<Pressable
 						key={option}
-						onPress={() => void profileFeature.settings.setUnits({ units: option })}
+						onPress={() => void profileFeature.settings.unitButtonTapped({ units: option })}
 						style={[styles.choice, units === option && styles.choiceSelected]}
 					>
 						<Text style={[styles.choiceLabel, units === option && styles.choiceLabelSelected]}>
@@ -31,7 +31,7 @@ export function SettingsScreen() {
 				<Switch
 					value={notifications}
 					onValueChange={(value) =>
-						void profileFeature.settings.setNotifications({ notifications: value })
+						void profileFeature.settings.notificationsSwitchToggled({ notifications: value })
 					}
 				/>
 			</View>

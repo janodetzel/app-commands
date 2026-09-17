@@ -12,14 +12,14 @@ import { createProfileFeature } from ".";
 const fakeSettings = () => {
 	const state = { units: "mi" as "km" | "mi", notifications: false };
 	return {
-		setUnits: command()
+		unitButtonTapped: command()
 			.input({ units: z.enum(["km", "mi"]) })
 			.description("Sets the fake units.")
 			.run(async ({ units }) => {
 				state.units = units;
 				return units;
 			}),
-		setNotifications: command()
+		notificationsSwitchToggled: command()
 			.input({ notifications: z.boolean() })
 			.description("Sets the fake notifications.")
 			.run(async ({ notifications }) => {
@@ -36,8 +36,8 @@ describe("the profile feature", () => {
 		});
 
 		expect(Object.keys(registry).sort()).toEqual([
-			"profile.settings.setNotifications",
-			"profile.settings.setUnits",
+			"profile.settings.notificationsSwitchToggled",
+			"profile.settings.unitButtonTapped",
 		]);
 	});
 });

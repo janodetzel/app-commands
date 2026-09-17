@@ -23,7 +23,8 @@ import {
  * Everything the app-commands plugin can reach.
  *
  * The keys are the namespaces: `featureCommands` names every command by its path
- * in this object, so `todos.add` is `todosFeature.add`, and a feature nested in
+ * in this object, so `todos.newTodoSubmitted` is `todosFeature.newTodoSubmitted`,
+ * and a feature nested in
  * another adds a segment. The adapters are the same shape - each returns a slice
  * of the registry - so a library the bridge knows about and a feature the app
  * wrote register identically.

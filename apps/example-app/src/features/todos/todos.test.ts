@@ -6,9 +6,9 @@ import { createTodosFeature, getTodos } from ".";
 
 /**
  * The feature is tested through its own methods, which is the call the screens
- * make and the call a command makes: `todos.add({ title })` either way. No
- * simulator, no React, and no registry in between, so a failure here points at
- * the feature rather than at the plumbing.
+ * make and the call a command makes: `todos.newTodoSubmitted({ title })` either
+ * way. No simulator, no React, and no registry in between, so a failure here
+ * points at the feature rather than at the plumbing.
  *
  * Reads go through `getTodos` rather than a `list` entry point, because there is
  * no longer one: the screens read the cache with `useQuery` and the agent reads
@@ -33,20 +33,24 @@ describe("the todos feature", () => {
 		todos = createTodosFeature({ apollo });
 	});
 
-	it("exposes only what a reader does on the screens", () => {
-		expect(Object.keys(todos).sort()).toEqual(["add", "remove", "setDone"]);
+	it("exposes only the controls a reader touches", () => {
+		expect(Object.keys(todos).sort()).toEqual([
+			"checkboxTapped",
+			"deleteButtonTapped",
+			"newTodoSubmitted",
+		]);
 	});
 
 	it("adds a todo and shows it in the cache the screen reads", async () => {
 		await read("network");
-		const rows = await todos.add({ title: "Write the brief" });
+		const rows = await todos.newTodoSubmitted({ title: "Write the brief" });
 
 		expect(rows.map((t) => t.title)).toContain("Write the brief");
 	});
 
 	it("leaves the cache and the server agreeing after a mutation", async () => {
 		await read("network");
-		await todos.add({ title: "Check the cache update" });
+		await todos.newTodoSubmitted({ title: "Check the cache update" });
 
 		// Cache first: a network read writes to the cache and would hide the bug.
 		const cached = await read("cache");
@@ -59,7 +63,7 @@ describe("the todos feature", () => {
 		const before = await read("network");
 		const target = before[0]!.id;
 
-		await todos.remove({ id: target });
+		await todos.deleteButtonTapped({ id: target });
 
 		const cached = await read("cache");
 		const served = await read("network");
@@ -70,13 +74,13 @@ describe("the todos feature", () => {
 
 	it("fails when the id does not exist", async () => {
 		// The rejection is what the adapter turns into COMMAND_FAILED.
-		await expect(todos.setDone({ id: "nope", done: true })).rejects.toThrow();
+		await expect(todos.checkboxTapped({ id: "nope", done: true })).rejects.toThrow();
 	});
 
 	it("keeps a description on the todo, and stores an empty one when it is left out", async () => {
 		await read("network");
-		await todos.add({ title: "Write the brief", description: "Two pages, no more." });
-		const cached = await todos.add({ title: "Send it" });
+		await todos.newTodoSubmitted({ title: "Write the brief", description: "Two pages, no more." });
+		const cached = await todos.newTodoSubmitted({ title: "Send it" });
 
 		expect(cached).toEqual(
 			expect.arrayContaining([

@@ -8,7 +8,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "AddTodo">;
 
 /**
  * The long form of adding a todo: a title and a description. The quick composer
- * on the list screen and this screen both call `todos.add`, which is also the
+ * on the list screen and this screen both call `todos.newTodoSubmitted`, which is also the
  * command, so there is one implementation of adding a todo.
  */
 export function AddTodoScreen({ navigation }: Props) {
@@ -24,7 +24,7 @@ export function AddTodoScreen({ navigation }: Props) {
 		setBusy(true);
 		setError(null);
 		try {
-			await todosFeature.add({
+			await todosFeature.newTodoSubmitted({
 				title: title.trim(),
 				// Left out rather than sent as "", so the API decides what an absent
 				// description is and the screen does not encode it twice.

@@ -4,7 +4,8 @@ export type ProfileFeatureDeps<S extends SettingsFeature> = { settingsFeature: S
 
 /**
  * A feature composed of another. `settings` is nested as it is, so its commands
- * are reachable as `profile.settings.setUnits` and so on. The nesting is nothing
+ * are reachable as `profile.settings.unitButtonTapped` and so on. The nesting is
+ * nothing
  * but an object key: `featureCommands` adds the segment.
  *
  * Generic over the settings it is given, so `profileFeature.settings` keeps the

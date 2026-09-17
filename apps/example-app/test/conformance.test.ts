@@ -44,10 +44,10 @@ describe("the registry this app builds", () => {
 	it("conforms to what an agent needs from every command", async () => {
 		// Only the command that writes to an in-memory store is sampled. The
 		// round-trip check has to run a command, and what is left in a registry
-		// once the read commands are gone is mutations - sampling `todos.remove`
+		// once the read commands are gone is mutations - sampling `todos.deleteButtonTapped`
 		// to assert a serialization property would be worse than not asserting it.
 		const problems = await checkRegistry(buildAppRegistry(), {
-			samples: { "settings.setUnits": { units: "km" } },
+			samples: { "settings.unitButtonTapped": { units: "km" } },
 		});
 
 		expect(problems).toEqual([]);

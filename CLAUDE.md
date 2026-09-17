@@ -57,7 +57,8 @@ the file. Never edit a package `version` or push a release tag by hand; see
    client created inside a component with `useMemo` is unreachable for the bridge.
 2. **Commands call the same functions as the UI.** A command is never a second
    implementation. The feature method _is_ the command: the screen calls
-   `todos.add({ title })` and so does the bridge.
+   `todos.newTodoSubmitted({ title })` and so does the bridge. Name it after the
+   control the reader touches, so a command no screen can reach has nowhere to hide.
 3. **Every entry point returns a promise that settles when the work is done.** A
    fire-and-forget call makes a command report success before the save runs.
    `@typescript-eslint/no-floating-promises` is an error across the workspace.
@@ -95,7 +96,7 @@ registry.
   takes a Standard Schema, an object of them, or a validator function.
 - Features compose by nesting and merging plain objects, like tRPC routers:
   `{ ...a, ...b }` merges, `{ settings: settingsFeature }` nests and adds a segment
-  to the command name (`profile.settings.setUnits`). Do it in `instances.ts`.
+  to the command name (`profile.settings.unitButtonTapped`). Do it in `instances.ts`.
 - Descriptions are part of the API, not documentation. Say what the command does
   _not_ do. Never generate one from a method name.
 - A feature is a folder: `feature.ts` (the `createXFeature` factory), `store.ts`,
@@ -146,19 +147,25 @@ The running app exposes its business logic through `pnpm app-commands`.
 1. Start Metro and the simulator first. Exit code 2 means the app is not connected.
 2. Run `pnpm app-commands list` to see every command and its arguments.
 3. After a code change, reload the app (press `r` in Metro) before you run commands.
-4. After a mutation that touches server data, compare `todos.list --source cache`
-   with `todos.list --source network`, in that order. A difference means the cache
-   update is wrong. Read `cache` first: a `network-only` query writes its result to
-   the cache and hides the bug from every later `cache` read.
-5. Use `nav.navigate` to put the app on a screen for a UI check. Do not verify data
-   with screenshots. Use the data commands.
-6. When you add a feature with business logic, define its entry points with
-   `command()` in the feature's `index.ts`.
-7. Every store action and operation function must return a promise that resolves
+4. Read state with the adapter that owns it, never with a command a feature wrote
+   for you: `apollo.inspect --prefix "Todo:"` for server data, `store.inspect` for
+   a store, `storage.inspect` for what survives a restart, `nav.inspect` for where
+   the app is. Call one with no argument to list the keys it has.
+5. After a mutation that touches server data, read `apollo.inspect` first, then
+   `apollo.refetch`, then read it again. A difference means the cache update is
+   wrong. In that order: a refetch writes its result to the cache and hides the bug
+   from every later read.
+6. Use `nav.navigate` to put the app on a screen for a UI check. Do not verify data
+   with screenshots. Use the inspect commands. A query only runs where its screen is
+   mounted, so navigate before expecting its data in the cache.
+7. When you add a feature with business logic, define its entry points with
+   `command()` in the feature's `index.ts`. One per control a reader touches, and no
+   read commands.
+8. Every store action and operation function must return a promise that resolves
    when the work is done. Never fire and forget.
 
 `.mcp.json` registers an `app-commands` MCP server that exposes the same commands as
-tools, named with `_` in place of the dot (`todos.add` becomes `todos_add`). Prefer
+tools, named with `_` in place of the dot (`store.inspect` becomes `store_inspect`). Prefer
 those tools when they are in your tool list; call the `list` tool after reloading
 the app, because the tool list is a snapshot.
 
