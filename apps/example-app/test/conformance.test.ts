@@ -21,7 +21,7 @@ import { createTodosFeature } from "../src/features/todos";
  *
  * The registry is rebuilt rather than imported from `src/app/commands.ts`, which
  * reaches `instances.ts` and with it AsyncStorage and the navigation ref.
- * `navigationCommands` is left out for the same reason.
+ * `navigationCommands` and `inspect` are left out for the same reason.
  */
 
 const nullStorage = <T>() => ({ get: async () => null as T | null, set: async () => {} });
@@ -56,7 +56,6 @@ describe("the registry this app builds", () => {
 		const problems = await checkRegistry(buildAppRegistry(), {
 			samples: {
 				"settings.get": {},
-				"news.dismissed": {},
 				"exampleCommand.inout": { arg: "round trip" },
 			},
 		});

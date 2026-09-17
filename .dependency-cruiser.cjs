@@ -31,6 +31,9 @@ const ADAPTER_LIBRARIES = {
 	"react-navigation": inNodeModules("@react-navigation/[^/]+"),
 	apollo: inNodeModules("@apollo/client"),
 	zustand: inNodeModules("zustand"),
+	// Named after a shape rather than a library, and copies the two methods it
+	// needs instead of importing them. An empty allowlist is what says so.
+	"key-value": [],
 };
 
 /** One rule per adapter: its own library, plus zod, and nothing else. */

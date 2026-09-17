@@ -78,7 +78,7 @@ describe("the registry the app builds", () => {
 	});
 
 	it("rejects an empty article id before it reaches the store", async () => {
-		expect(await call("news.dismiss", { id: "" })).toMatchObject({
+		expect(await call("news.dismissButtonTapped", { id: "" })).toMatchObject({
 			ok: false,
 			code: "INVALID_ARGS",
 		});

@@ -137,13 +137,18 @@ merges the slices and throws on a duplicate key, naming it.
 
 ```ts
 import { buildRegistry, featureCommands } from "@janodetzel/app-commands";
-import { apolloCommands } from "@janodetzel/app-commands/adapters/apollo";
+import { apolloCacheSource, apolloCommands } from "@janodetzel/app-commands/adapters/apollo";
+import { inspect } from "@janodetzel/app-commands/adapters/inspect";
 import { navigationCommands } from "@janodetzel/app-commands/adapters/react-navigation";
+import { zustandSource } from "@janodetzel/app-commands/adapters/zustand";
 
 export const commandRegistry = buildRegistry(
 	featureCommands({ todos: todosFeature, settings: settingsFeature }),
-	apolloCommands(apolloClient),
 	navigationCommands(navigationRef, { routes: RouteName }),
+	inspect({
+		stores: zustandSource({ settings: settingsStore }),
+		cache: apolloCacheSource(apolloClient),
+	}),
 );
 ```
 
@@ -267,13 +272,15 @@ They are separate entry points, so an app pays only for what it imports.
 import { buildRegistry, featureCommands } from "@janodetzel/app-commands";
 import { navigationCommands } from "@janodetzel/app-commands/adapters/react-navigation";
 import { apolloCommands } from "@janodetzel/app-commands/adapters/apollo";
-import { zustandInspect } from "@janodetzel/app-commands/adapters/zustand";
+import { keyValueCommands } from "@janodetzel/app-commands/adapters/key-value";
+import { zustandCommands } from "@janodetzel/app-commands/adapters/zustand";
 
 buildRegistry(
 	featureCommands({ todos, settings }), //                     todos.add, settings.setUnits, …
-	navigationCommands(navigationRef, { routes: RouteName }), // nav.current, nav.navigate, nav.back
-	apolloCommands(apolloClient), //                             apollo.cache, apollo.refetch
-	zustandInspect({ settings: settingsStore }), //               store.get
+	navigationCommands(navigationRef, { routes: RouteName }), // nav.navigate, nav.back, nav.inspect
+	apolloCommands(apolloClient), //                             apollo.refetch, apollo.inspect
+	zustandCommands({ settings: settingsStore }), //             store.inspect
+	keyValueCommands(AsyncStorage), //                           storage.inspect
 );
 ```
 
@@ -284,10 +291,19 @@ React Navigation logs a warning for an unknown route rather than throwing. Types
 not exist at runtime, so pass the route names as a `z.enum` and keep it honest with
 a type test against the navigator's param list.
 
-`apollo.cache` requires a prefix: a full dump of a real app's cache is megabytes of
-noise in an agent's context. `zustandInspect` is read-only on purpose — a command
-that called `setState` would put the app in a state no tap can produce. Expose the
-store action as a named entry point instead.
+`inspect` is the one read command, across every place an app keeps state. A source
+is a description, the keys it holds, and a way to read one, so a store, a cache and
+AsyncStorage answer the same `state.get` — and a feature ships only the commands
+its UI calls, with the result of one checked by reading the state it wrote. Call
+`state.sources` first: cache keys change as the app runs, and a key that is absent
+fails and names the keys that exist rather than returning an empty result.
+
+It is read-only on purpose. A command that called `setState` would put the app in a
+state no tap can produce. Expose the store action as a named entry point instead.
+
+That leaves each adapter holding only what a user does: `nav.navigate` and
+`nav.back`, `apollo.refetch`. Where the app ended up and what came back are read
+with `state.get`, from the same source every other piece of state answers.
 
 ## The lint rules
 

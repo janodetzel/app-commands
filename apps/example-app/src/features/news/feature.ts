@@ -2,47 +2,29 @@ import type { ApolloClient } from "@apollo/client";
 import { command } from "@janodetzel/app-commands";
 import { z } from "zod";
 
-import { getNews, visibleArticles } from "./api";
-import { type Article } from "./gql";
 import type { DismissedNewsStore } from "./store";
 
 export type NewsFeatureDeps = { apollo: ApolloClient; store: DismissedNewsStore };
 
 /**
- * Server data from the Apollo cache, local dismissals from a store, combined by
- * `visibleArticles`. The screen combines them with the same function, so
- * `news.list` and the list a reader sees cannot disagree.
+ * Only what a reader can do on the news screen, named after the thing they do.
+ *
+ * There is no `list` and no `dismissed` command. A read command is a second
+ * implementation of what the screen already renders, written for nobody but the
+ * agent, and it drifts from the screen the moment the two are edited apart.
+ * What the screen shows is read with `state.get` instead: the articles from the
+ * Apollo cache, the dismissals from the store, combined by `visibleArticles` -
+ * the same function `useVisibleArticles` binds for the screen.
  */
 export const createNewsFeature = (deps: NewsFeatureDeps) => ({
-	list: command()
-		.input({ source: z.enum(["cache", "network"]).default("cache") })
-		.description(
-			"Returns the articles that have not been dismissed. source=cache is what the screen shows right now, source=network is what the server has. Read cache first: a network read writes to the cache and hides a broken cache update.",
-		)
-		.run(async ({ source }) => {
-			const articles = await getNews(deps.apollo, source);
-			return visibleArticles(articles, new Set(deps.store.getState().dismissedIds));
-		}),
-
-	dismiss: command()
+	dismissButtonTapped: command()
 		.input({ id: z.string().min(1) })
 		.description(
-			"Dismisses one article locally, so it drops out of news.list, and returns every dismissed id. Dismissing an already dismissed article is a no-op. The server never hears about it. Fails when the save fails.",
+			"Does what tapping Dismiss on an article does: hides it for this reader and saves the dismissal. Returns nothing - read state.get to see the result, the way the screen does. Dismissing an already dismissed article is a no-op. The server never hears about it, and an id no article has is dismissed just the same. Fails when the save fails, and the dismissal is rolled back.",
 		)
 		.run(async ({ id }) => {
 			await deps.store.getState().dismiss(id);
-			return deps.store.getState().dismissedIds;
 		}),
-
-	dismissed: command()
-		.description(
-			"Returns the ids dismissed so far, including ids of articles the server no longer serves.",
-		)
-		.run(async () => deps.store.getState().dismissedIds),
-
-	visibleArticles: (articles: Article[], dismissedIds: Array<string>) => {
-		return visibleArticles(articles, new Set(dismissedIds));
-	},
 });
 
 export type NewsFeature = ReturnType<typeof createNewsFeature>;

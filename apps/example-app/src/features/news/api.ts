@@ -1,16 +1,4 @@
-import type { ApolloClient } from "@apollo/client";
-import { type Article, NEWS } from "./gql";
-
-export async function getNews(
-	client: ApolloClient,
-	source: "cache" | "network",
-): Promise<Article[]> {
-	const { data } = await client.query({
-		query: NEWS,
-		fetchPolicy: source === "cache" ? "cache-only" : "network-only",
-	});
-	return (data as { news?: Article[] } | null)?.news ?? [];
-}
+import { type Article } from "./gql";
 
 /**
  * Pure, and the single place "what's shown" is decided: no React, no Zustand,
