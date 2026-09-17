@@ -1,6 +1,6 @@
 {
 	"name": "@janodetzel/app-commands",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Run typed commands against a running app from a CLI, an MCP server, or the Metro dev tools, and keep the app's features reachable with lint and dependency-cruiser rules. Knows no UI framework.",
 	"author": "Jano Detzel <jano@janodetzel.com>",
 	"homepage": "https://github.com/janodetzel/app-commands#readme",
