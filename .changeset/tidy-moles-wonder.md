@@ -1,5 +1,5 @@
 ---
-"@janodetzel/app-commands": major
+"@janodetzel/app-commands": minor
 ---
 
 Every adapter that owns state now names its read `inspect`, so a feature ships
