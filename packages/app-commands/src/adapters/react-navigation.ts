@@ -23,26 +23,30 @@ export type NavigationCommandsOptions = {
 };
 
 /**
- * Puts the app on a screen so a UI check has something to look at. It does not
- * verify business logic; the data commands do that.
+ * Puts the app on a screen so a UI check has something to look at, and says
+ * where it is. It does not verify business logic; the data commands do that.
+ *
+ * `navigate` and `back` are the two things a reader does with a navigator, and
+ * each returns the route it waited to become focused - the result of the act,
+ * not a projection of state it did not change.
  */
 export function navigationCommands(ref: NavigationRef, opts: NavigationCommandsOptions): Registry {
 	const focusTimeoutMs = opts.focusTimeoutMs ?? 2_000;
 
 	return featureCommands({
 		[opts.namespace ?? "nav"]: {
-			current: command()
+			inspect: command()
+				.input({ key: z.enum(["current", "state"]).default("current") })
 				.description(
-					"Returns the focused route and its params, or null before the container is ready.",
+					"Returns where the app is. current is the focused route and its params; state is the whole navigation tree, which says what else is on the stack. Both answer null before the container is ready, which is an answer rather than a failure.",
 				)
-				.run(async () => {
+				.run(async ({ key }) => {
+					if (key === "state") {
+						return ref.isReady() ? { state: ref.getState(), rootState: ref.getRootState() } : null;
+					}
 					const route = ref.getCurrentRoute();
 					return route ? { name: route.name, params: route.params ?? null } : null;
 				}),
-
-			state: command()
-				.description("Returns the current navigation state, or null before the container is ready.")
-				.run(async () => ({ state: ref.getState(), rootState: ref.getRootState() })),
 
 			navigate: command()
 				.input({ screen: opts.routes, params: z.record(z.string(), z.unknown()).optional() })

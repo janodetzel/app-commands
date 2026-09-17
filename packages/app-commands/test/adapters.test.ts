@@ -5,8 +5,9 @@ import { createStore } from "zustand/vanilla";
 import { z } from "zod";
 
 import { apolloCommands } from "../src/adapters/apollo";
+import { keyValueCommands } from "../src/adapters/key-value";
 import { navigationCommands, type NavigationRef } from "../src/adapters/react-navigation";
-import { zustandInspect } from "../src/adapters/zustand";
+import { zustandCommands } from "../src/adapters/zustand";
 import { buildRegistry, type Registry } from "../src/core/command";
 import { handleRequest } from "../src/core/handle";
 import { PROTOCOL_VERSION, type Response } from "../src/core/protocol";
@@ -42,7 +43,20 @@ describe("navigationCommands", () => {
 		const ref = createNavigationContainerRef<{ Home: undefined; Settings: undefined }>();
 		const registry = navigationCommands(ref as NavigationRef, { routes });
 
-		expect(await call(registry, "nav.current")).toMatchObject({ ok: true, result: null });
+		expect(await call(registry, "nav.inspect")).toMatchObject({ ok: true, result: null });
+		expect(await call(registry, "nav.inspect", { key: "state" })).toMatchObject({
+			ok: true,
+			result: null,
+		});
+	});
+
+	it("names the two things it can report, and rejects anything else", async () => {
+		const ref = createNavigationContainerRef<{ Home: undefined }>();
+		const registry = navigationCommands(ref as NavigationRef, { routes });
+
+		expect(failed(await call(registry, "nav.inspect", { key: "history" })).code).toBe(
+			"INVALID_ARGS",
+		);
 	});
 
 	it("times out when the route never becomes focused, which is what an unknown route does", async () => {
@@ -85,71 +99,154 @@ describe("navigationCommands", () => {
 
 		expect(Object.keys(registry).sort()).toEqual([
 			"screens.back",
-			"screens.current",
+			"screens.inspect",
 			"screens.navigate",
-			"screens.state",
 		]);
 	});
 });
 
 describe("apolloCommands", () => {
-	const client = new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() });
-
-	client.cache.writeQuery({
-		query: gql`
-			query Favorites {
-				favorites {
-					__typename
-					id
-					title
+	const withCache = () => {
+		const client = new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() });
+		client.cache.writeQuery({
+			query: gql`
+				query Articles {
+					articles {
+						id
+						title
+					}
 				}
-			}
-		`,
-		data: { favorites: [{ __typename: "Favorite", id: "1", title: "Kept" }] },
+			`,
+			data: { articles: [{ __typename: "Article", id: "a1", title: "One" }] },
+		});
+		return apolloCommands(client);
+	};
+
+	it("lists the prefixes present when called with none", async () => {
+		expect(await call(withCache(), "apollo.inspect")).toMatchObject({
+			ok: true,
+			result: ["Article:", "ROOT_QUERY"],
+		});
 	});
 
-	const registry = apolloCommands(client);
-
-	it("returns only the cache entries with the prefix", async () => {
-		const res = await call(registry, "apollo.cache", { prefix: "Favorite:" });
+	it("returns only the entries with the prefix", async () => {
+		const res = await call(withCache(), "apollo.inspect", { prefix: "Article:" });
 		if (!res.ok) throw new Error(res.error);
 
-		expect(Object.keys(res.result as object)).toEqual(["Favorite:1"]);
+		expect(Object.keys(res.result as object)).toEqual(["Article:a1"]);
 	});
 
-	it("requires a prefix, so an agent cannot dump the whole cache", async () => {
-		expect(failed(await call(registry, "apollo.cache")).code).toBe("INVALID_ARGS");
-		expect(failed(await call(registry, "apollo.cache", { prefix: "" })).code).toBe("INVALID_ARGS");
+	it("fails and names the prefixes it has, rather than returning empty", async () => {
+		const res = failed(await call(withCache(), "apollo.inspect", { prefix: "Nope:" }));
+
+		expect(res.error).toMatch(/nothing in the cache starts with "Nope:".*"Article:"/);
+	});
+
+	it("says so when the cache is empty", async () => {
+		const client = new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() });
+		const res = failed(
+			await call(apolloCommands(client), "apollo.inspect", { prefix: "Article:" }),
+		);
+
+		expect(res.error).toMatch(/the cache is empty/);
 	});
 
 	it("returns an empty list when no named query is active", async () => {
-		expect(await call(registry, "apollo.refetch", { operations: ["Favorites"] })).toMatchObject({
+		expect(await call(withCache(), "apollo.refetch", { operations: ["Articles"] })).toMatchObject({
 			ok: true,
 			result: [],
 		});
 	});
+
+	it("requires at least one operation", async () => {
+		expect(failed(await call(withCache(), "apollo.refetch", { operations: [] })).code).toBe(
+			"INVALID_ARGS",
+		);
+	});
 });
 
-describe("zustandInspect", () => {
-	const store = createStore<{ units: string; setUnits(u: string): void }>()((set) => ({
-		units: "km",
-		setUnits: (units) => set({ units }),
-	}));
-
-	const registry = zustandInspect({ settings: store });
+describe("zustandCommands", () => {
+	const build = () => {
+		const store = createStore<{ dismissedIds: string[]; dismiss(id: string): void }>()((set) => ({
+			dismissedIds: [],
+			dismiss: (id) => set((s) => ({ dismissedIds: [...s.dismissedIds, id] })),
+		}));
+		return { store, registry: zustandCommands({ dismissedNews: store }) };
+	};
 
 	it("returns state without the actions", async () => {
-		const res = await call(registry, "store.get", { store: "settings" });
-		expect(res).toMatchObject({ ok: true, result: { units: "km" } });
-		expect(Object.keys((res as { result: object }).result)).toEqual(["units"]);
+		const res = await call(build().registry, "store.inspect", { store: "dismissedNews" });
+
+		expect(res).toMatchObject({ ok: true, result: { dismissedIds: [] } });
+		expect(Object.keys((res as { result: object }).result)).toEqual(["dismissedIds"]);
 	});
 
-	it("only knows the stores it was given", async () => {
-		expect(failed(await call(registry, "store.get", { store: "nope" })).code).toBe("INVALID_ARGS");
+	it("sees a write the UI made, which is what verifying a command means", async () => {
+		const { store, registry } = build();
+		store.getState().dismiss("a1");
+
+		expect(await call(registry, "store.inspect", { store: "dismissedNews" })).toMatchObject({
+			ok: true,
+			result: { dismissedIds: ["a1"] },
+		});
+	});
+
+	it("puts the store names in the schema, so a wrong one never reaches the app", async () => {
+		const { registry } = build();
+
+		expect(failed(await call(registry, "store.inspect", { store: "nope" })).code).toBe(
+			"INVALID_ARGS",
+		);
 	});
 
 	it("exposes no way to write", () => {
-		expect(Object.keys(registry)).toEqual(["store.get"]);
+		expect(Object.keys(build().registry)).toEqual(["store.inspect"]);
+	});
+
+	it("refuses to register with no store at all", () => {
+		expect(() => zustandCommands({})).toThrow(/at least one store/);
+	});
+});
+
+describe("keyValueCommands", () => {
+	const build = (entries: [string, string][] = [["news.dismissedIds", JSON.stringify(["a9"])]]) => {
+		const saved = new Map(entries);
+		return keyValueCommands({
+			getItem: async (key: string) => saved.get(key) ?? null,
+			getAllKeys: async () => [...saved.keys()],
+		});
+	};
+
+	it("lists the keys present when called with none", async () => {
+		expect(await call(build(), "storage.inspect")).toMatchObject({
+			ok: true,
+			result: ["news.dismissedIds"],
+		});
+	});
+
+	it("parses a JSON value, so the object comes back rather than a string", async () => {
+		expect(await call(build(), "storage.inspect", { key: "news.dismissedIds" })).toMatchObject({
+			ok: true,
+			result: ["a9"],
+		});
+	});
+
+	it("returns a value that is not JSON as it is", async () => {
+		expect(
+			await call(build([["token", "abc"]]), "storage.inspect", { key: "token" }),
+		).toMatchObject({ ok: true, result: "abc" });
+	});
+
+	it("fails and names the keys it has, rather than returning empty", async () => {
+		const res = failed(await call(build(), "storage.inspect", { key: "nope" }));
+
+		expect(res.error).toMatch(/nothing is saved under "nope".*"news.dismissedIds"/);
+	});
+
+	it("says so when storage is empty", async () => {
+		const res = failed(await call(build([]), "storage.inspect", { key: "nope" }));
+
+		expect(res.error).toMatch(/storage is empty/);
 	});
 });
 
@@ -163,15 +260,24 @@ describe("the slices together", () => {
 		const registry = buildRegistry(
 			navigationCommands(ref as NavigationRef, { routes }),
 			apolloCommands(client),
-			zustandInspect({ settings: store }),
+			zustandCommands({ settings: store }),
 		);
 
-		expect(Object.keys(registry)).toHaveLength(7);
+		// Every adapter reads under its own namespace, and each names that read
+		// `inspect`, so one convention covers all of them.
+		expect(Object.keys(registry).sort()).toEqual([
+			"apollo.inspect",
+			"apollo.refetch",
+			"nav.back",
+			"nav.inspect",
+			"nav.navigate",
+			"store.inspect",
+		]);
 
 		// Two adapters asked for the same namespace: better to fail at startup than
 		// to have one of them silently win.
 		expect(() =>
 			buildRegistry(apolloCommands(client), apolloCommands(client, { namespace: "apollo" })),
-		).toThrow('duplicate command "apollo.cache"');
+		).toThrow('duplicate command "apollo.inspect"');
 	});
 });

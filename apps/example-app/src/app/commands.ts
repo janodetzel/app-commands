@@ -1,16 +1,21 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apolloCommands } from "@janodetzel/app-commands/adapters/apollo";
 import { buildRegistry, command, featureCommands } from "@janodetzel/app-commands";
+import { keyValueCommands } from "@janodetzel/app-commands/adapters/key-value";
 import {
 	navigationCommands,
 	type NavigationRef,
 } from "@janodetzel/app-commands/adapters/react-navigation";
+import { zustandCommands } from "@janodetzel/app-commands/adapters/zustand";
 
 import { RouteName } from "../navigation/routes";
 import {
 	apolloClient,
+	dismissedNewsStore,
 	navigationRef,
 	newsFeature,
 	profileFeature,
+	settingsStore,
 	todosFeature,
 } from "./instances";
 import { z } from "zod";
@@ -41,6 +46,14 @@ export const commandRegistry = buildRegistry(
 				.run(async ({ arg }) => ({ arg })),
 		},
 	}),
-	apolloCommands(apolloClient),
 	navigationCommands(navigationRef as NavigationRef, { routes: RouteName }),
+	apolloCommands(apolloClient),
+
+	/**
+	 * How the agent reads what the screens render, so no feature has to ship a
+	 * read command. Each adapter answers for the state it owns, under its own
+	 * namespace, with the keys it has in its own schema where they are known.
+	 */
+	zustandCommands({ dismissedNews: dismissedNewsStore, settings: settingsStore }),
+	keyValueCommands(AsyncStorage),
 );

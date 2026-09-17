@@ -74,8 +74,11 @@ uses the name. The library goes in `peerDependenciesMeta` as optional and in
 so the new adapter may reach it and nothing else. Tests build real instances and call
 through `handleRequest`; no React rendering.
 
-Read-only by default. `zustandInspect` exposes no writer on purpose: a command that
-called `setState` would put the app in a state no tap can produce.
+Read-only by default: a command that called `setState` would put the app in a state
+no tap can produce. An adapter that owns state names its read `inspect`, declaring
+the keys in its schema where they are known and listing them when called with none
+where they are not. A key that matches nothing fails and names the ones that do -
+an empty success is the worst answer an agent can get.
 
 ## The CLI
 

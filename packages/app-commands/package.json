@@ -20,15 +20,16 @@
 	"types": "build/index.d.ts",
 	"sideEffects": false,
 	"scripts": {
-		"build": "EXPO_NONINTERACTIVE=1 expo-module build && EXPO_NONINTERACTIVE=1 expo-module build cli && pnpm run build:mcp",
-		"build:all": "expo-module prepare && pnpm run build:mcp && pnpm run web:export",
+		"build": "EXPO_NONINTERACTIVE=1 expo-module build && EXPO_NONINTERACTIVE=1 expo-module build cli && pnpm run build:mcp && pnpm run build:bin",
+		"build:all": "expo-module prepare && pnpm run build:mcp && pnpm run build:bin && pnpm run web:export",
 		"build:mcp": "tsc -p mcp/tsconfig.json",
 		"clean": "expo-module clean",
 		"prepare": "expo-module prepare && pnpm run build:mcp",
 		"prepublishOnly": "expo-module prepare && expo-module prepublishOnly && pnpm run build:mcp && pnpm run web:export",
 		"web:dev": "cd webui && npx expo start -w",
 		"web:export": "./scripts/build-webui.js",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"build:bin": "chmod +x build/cli/index.js build/mcp/index.js"
 	},
 	"keywords": [
 		"expo",
@@ -85,6 +86,10 @@
 		"./adapters/apollo": {
 			"types": "./build/adapters/apollo.d.ts",
 			"default": "./build/adapters/apollo.js"
+		},
+		"./adapters/key-value": {
+			"types": "./build/adapters/key-value.d.ts",
+			"default": "./build/adapters/key-value.js"
 		},
 		"./adapters/react-navigation": {
 			"types": "./build/adapters/react-navigation.d.ts",
