@@ -21,13 +21,15 @@ const memoryStorage = () => {
 };
 
 describe("the settings feature", () => {
-	it("saves what it sets, and returns state without the actions", async () => {
+	it("saves what it sets, and leaves it in the store the screen reads", async () => {
 		const storage = memoryStorage();
-		const settings = createSettingsFeature({ store: createSettingsStore({ storage }) });
+		const store = createSettingsStore({ storage });
+		const settings = createSettingsFeature({ store });
 
-		expect(await settings.setUnits({ units: "mi" })).toBe("mi");
+		expect(await settings.unitButtonTapped({ units: "mi" })).toBe("mi");
 		expect(storage.read()).toEqual({ units: "mi", notifications: true });
-		expect(await settings.get()).toEqual({ units: "mi", notifications: true });
+		// What `store.inspect --store settings` returns, minus the actions.
+		expect(store.getState()).toMatchObject({ units: "mi", notifications: true });
 	});
 
 	it("saves a notification toggle through the store the screen reads", async () => {
@@ -35,7 +37,7 @@ describe("the settings feature", () => {
 		const store = createSettingsStore({ storage });
 		const settings = createSettingsFeature({ store });
 
-		await settings.setNotifications({ notifications: false });
+		await settings.notificationsSwitchToggled({ notifications: false });
 
 		expect(store.getState().notifications).toBe(false);
 		expect(storage.read()).toEqual({ units: "km", notifications: false });
@@ -52,7 +54,7 @@ describe("the settings feature", () => {
 		});
 		const settings = createSettingsFeature({ store });
 
-		await expect(settings.setUnits({ units: "mi" })).rejects.toThrow("disk full");
+		await expect(settings.unitButtonTapped({ units: "mi" })).rejects.toThrow("disk full");
 		// The rethrow is what makes the command fail, and the rollback is what keeps
 		// the screen showing what was actually saved.
 		expect(store.getState().units).toBe("km");

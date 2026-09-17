@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apolloCommands } from "@janodetzel/app-commands/adapters/apollo";
-import { buildRegistry, command, featureCommands } from "@janodetzel/app-commands";
+import { buildRegistry, featureCommands } from "@janodetzel/app-commands";
 import { keyValueCommands } from "@janodetzel/app-commands/adapters/key-value";
 import {
 	navigationCommands,
@@ -18,13 +18,13 @@ import {
 	settingsStore,
 	todosFeature,
 } from "./instances";
-import { z } from "zod";
 
 /**
  * Everything the app-commands plugin can reach.
  *
  * The keys are the namespaces: `featureCommands` names every command by its path
- * in this object, so `todos.add` is `todosFeature.add`, and a feature nested in
+ * in this object, so `todos.newTodoSubmitted` is `todosFeature.newTodoSubmitted`,
+ * and a feature nested in
  * another adds a segment. The adapters are the same shape - each returns a slice
  * of the registry - so a library the bridge knows about and a feature the app
  * wrote register identically.
@@ -39,12 +39,6 @@ export const commandRegistry = buildRegistry(
 		// Nested: settings is registered through profile, as profileFeature.settings.*,
 		// so it is not registered a second time on its own.
 		profileFeature,
-		exampleCommand: {
-			inout: command()
-				.input(z.object({ arg: z.string() }))
-				.description("A command that forwards its input")
-				.run(async ({ arg }) => ({ arg })),
-		},
 	}),
 	navigationCommands(navigationRef as NavigationRef, { routes: RouteName }),
 	apolloCommands(apolloClient),

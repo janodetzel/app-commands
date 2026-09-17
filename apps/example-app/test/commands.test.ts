@@ -71,7 +71,7 @@ describe("the registry the app builds", () => {
 	});
 
 	it("rejects an empty todo title before it reaches the API", async () => {
-		expect(await call("todos.add", { title: "" })).toMatchObject({
+		expect(await call("todos.newTodoSubmitted", { title: "" })).toMatchObject({
 			ok: false,
 			code: "INVALID_ARGS",
 		});
@@ -85,7 +85,7 @@ describe("the registry the app builds", () => {
 	});
 
 	it("turns a rejected handler into a failed response", async () => {
-		expect(await call("todos.setDone", { id: "nope", done: true })).toMatchObject({
+		expect(await call("todos.checkboxTapped", { id: "nope", done: true })).toMatchObject({
 			ok: false,
 			code: "COMMAND_FAILED",
 		});

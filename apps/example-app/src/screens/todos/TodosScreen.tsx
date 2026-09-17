@@ -18,12 +18,12 @@ export function TodosScreen() {
 	const [busy, setBusy] = useState(false);
 
 	// The screen calls the feature method directly, and so does the bridge:
-	// `todos.add` is the command. No dispatch wrapper in between.
+	// `todos.newTodoSubmitted` is the command. No dispatch wrapper in between.
 	const submit = async () => {
 		if (!title.trim()) return;
 		setBusy(true);
 		try {
-			await todosFeature.add({ title: title.trim() });
+			await todosFeature.newTodoSubmitted({ title: title.trim() });
 			setTitle("");
 		} finally {
 			setBusy(false);
@@ -57,7 +57,7 @@ export function TodosScreen() {
 					<View style={styles.row}>
 						<Pressable
 							style={styles.check}
-							onPress={() => void todosFeature.setDone({ id: item.id, done: !item.done })}
+							onPress={() => void todosFeature.checkboxTapped({ id: item.id, done: !item.done })}
 						>
 							<Text style={styles.checkMark}>{item.done ? "☑" : "☐"}</Text>
 							<View style={styles.text}>
@@ -67,7 +67,7 @@ export function TodosScreen() {
 								)}
 							</View>
 						</Pressable>
-						<Pressable onPress={() => void todosFeature.remove({ id: item.id })}>
+						<Pressable onPress={() => void todosFeature.deleteButtonTapped({ id: item.id })}>
 							<Text style={styles.remove}>Delete</Text>
 						</Pressable>
 					</View>

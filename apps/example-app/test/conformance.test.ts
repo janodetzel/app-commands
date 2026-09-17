@@ -1,9 +1,8 @@
 import { ApolloClient, InMemoryCache } from "@apollo/client";
 import { apolloCommands } from "@janodetzel/app-commands/adapters/apollo";
-import { buildRegistry, command, featureCommands } from "@janodetzel/app-commands";
+import { buildRegistry, featureCommands } from "@janodetzel/app-commands";
 import { checkRegistry } from "@janodetzel/app-commands/conformance";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { apiLink } from "../src/server/server";
 import { createDismissedNewsStore, createNewsFeature } from "../src/features/news";
@@ -36,12 +35,6 @@ function buildAppRegistry() {
 				store: createDismissedNewsStore({ storage: nullStorage<string[]>() }),
 			}),
 			settings: createSettingsFeature({ store: createSettingsStore({ storage: nullStorage() }) }),
-			exampleCommand: {
-				inout: command()
-					.input(z.object({ arg: z.string() }))
-					.description("A command that forwards its input")
-					.run(async ({ arg }) => ({ arg })),
-			},
 		}),
 		apolloCommands(client),
 	);
@@ -49,15 +42,12 @@ function buildAppRegistry() {
 
 describe("the registry this app builds", () => {
 	it("conforms to what an agent needs from every command", async () => {
-		// Only the commands that read from an in-memory store are sampled. The
-		// round-trip check has to run a command, and a registry is mostly
-		// mutations and network reads - sampling `todos.removeAll` to assert a
-		// serialization property would be worse than not asserting it.
+		// Only the command that writes to an in-memory store is sampled. The
+		// round-trip check has to run a command, and what is left in a registry
+		// once the read commands are gone is mutations - sampling `todos.deleteButtonTapped`
+		// to assert a serialization property would be worse than not asserting it.
 		const problems = await checkRegistry(buildAppRegistry(), {
-			samples: {
-				"settings.get": {},
-				"exampleCommand.inout": { arg: "round trip" },
-			},
+			samples: { "settings.unitButtonTapped": { units: "km" } },
 		});
 
 		expect(problems).toEqual([]);

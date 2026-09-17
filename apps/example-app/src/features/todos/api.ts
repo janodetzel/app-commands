@@ -1,14 +1,5 @@
 import type { ApolloClient, Reference } from "@apollo/client";
-import {
-	type Todo,
-	ADD_TODO,
-	ADD_TODOS,
-	REMOVE_TODO,
-	REMOVE_ALL_TODOS,
-	SET_TODO_DONE,
-	TODO_FIELDS,
-	TODOS,
-} from "./gql";
+import { type Todo, ADD_TODO, REMOVE_TODO, SET_TODO_DONE, TODO_FIELDS, TODOS } from "./gql";
 
 /**
  * One operation function per mutation, each owning its cache update. The screen
@@ -61,29 +52,6 @@ export async function setTodoDone(client: ApolloClient, id: string, done: boolea
 	return (data as { setTodoDone: Todo }).setTodoDone;
 }
 
-export async function addManyTodos(client: ApolloClient, titles: Array<string>): Promise<Todo[]> {
-	const { data, error } = await client.mutate({
-		mutation: ADD_TODOS,
-		variables: { titles },
-		update(cache, { data }) {
-			const added = (data as { addTodos?: Todo[] } | null)?.addTodos ?? [];
-			if (!added.length) return;
-			cache.modify({
-				fields: {
-					todos(existing: readonly Reference[] = []): readonly Reference[] {
-						const refs = added
-							.map((todo) => cache.writeFragment({ data: todo, fragment: TODO_FIELDS }))
-							.filter((ref): ref is Reference => ref !== null);
-						return [...existing, ...refs];
-					},
-				},
-			});
-		},
-	});
-	if (error) throw error;
-	return (data as { addTodos: Todo[] }).addTodos;
-}
-
 export async function removeTodo(client: ApolloClient, id: string): Promise<string> {
 	const { data, error } = await client.mutate({
 		mutation: REMOVE_TODO,
@@ -102,22 +70,4 @@ export async function removeTodo(client: ApolloClient, id: string): Promise<stri
 	});
 	if (error) throw error;
 	return (data as { removeTodo: string }).removeTodo;
-}
-
-export async function removeAllTodos(client: ApolloClient): Promise<Todo[]> {
-	const { error } = await client.mutate({
-		mutation: REMOVE_ALL_TODOS,
-		update(cache) {
-			cache.modify({
-				fields: {
-					todos(): readonly Reference[] {
-						cache.gc();
-						return [];
-					},
-				},
-			});
-		},
-	});
-	if (error) throw error;
-	return [];
 }

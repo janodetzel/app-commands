@@ -5,8 +5,8 @@ An AI agent that works on a mobile app has a slow way to check its work. It taps
 This project is about a different way to build the app. Every capability the app has can be reached by name, with typed arguments, from outside the user interface:
 
 ```
-$ pnpm app-commands todos.add --title "Buy milk"
-$ pnpm app-commands todos.list --source network
+$ pnpm app-commands todos.newTodoSubmitted --title "Buy milk"
+$ pnpm app-commands apollo.inspect --prefix "Todo:"
 ```
 
 The command runs inside the running app. It calls the same function the **Add** button calls, on the same store, the same GraphQL cache, and the same navigation reference. So the agent sets up a state, exercises a behavior, and reads the result in one call, and it verifies the code path a user takes.
@@ -38,7 +38,7 @@ export const createTodos = (deps: TodosDeps) => ({
 
 The handler's argument type comes from the schema, so the two cannot drift. `.input` takes any [Standard Schema](https://standardschema.dev) (zod, Valibot, ArkType), an object of them, or a validator function. Features compose like tRPC routers: nest one inside another, or spread two into one namespace.
 
-The screen calls `todosFeature.add({ title })`. The command `todos.add` is that same function, with the same validation. There is no second implementation for the agent, so the agent cannot report success for behavior that users never see.
+The screen calls `todosFeature.newTodoSubmitted({ title })`. The command `todos.newTodoSubmitted` is that same function, with the same validation. There is no second implementation for the agent, so the agent cannot report success for behavior that users never see. Commands are named after the control a reader touches, so one that no screen can reach has nowhere to hide, and reading state is the adapters' job rather than a `list` command a feature writes for the agent alone.
 
 The rest of the principles protect that one property. An entry point returns a promise that settles when the work is done, or the command reports success before the save runs. State lives outside the component tree, or a command has nothing to read when no screen is mounted. One file creates every instance, or a command eventually talks to a different client than the UI.
 
@@ -115,14 +115,14 @@ With the app open, list its commands and call one:
 
 ```
 $ pnpm app-commands list
-$ pnpm app-commands todos.add --title "Buy milk"
-$ pnpm app-commands todos.list --source cache
+$ pnpm app-commands todos.newTodoSubmitted --title "Buy milk"
+$ pnpm app-commands apollo.inspect --prefix "Todo:"
 $ pnpm app-commands nav.navigate --screen Settings
 ```
 
 The CLI asks the app for its commands on every call, so a new command works after a Metro reload. Exit code 2 means the CLI could not reach the app.
 
-An MCP client reaches the same commands as typed tools. [`.mcp.json`](.mcp.json) registers the `app-commands` server, which names each tool with `_` in place of the dot: `todos.add` becomes `todos_add`.
+An MCP client reaches the same commands as typed tools. [`.mcp.json`](.mcp.json) registers the `app-commands` server, which names each tool with `_` in place of the dot: `todos.newTodoSubmitted` becomes `todos_newTodoSubmitted`.
 
 ## Checks
 
