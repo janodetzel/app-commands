@@ -1,7 +1,7 @@
 import { command } from "@janodetzel/app-commands";
 import { z } from "zod";
 
-import { settingsStoreSelectors, type SettingsStore } from "./store";
+import { type SettingsStore } from "./store";
 
 export type SettingsFeatureDeps = { store: SettingsStore };
 
@@ -9,16 +9,11 @@ export type SettingsFeatureDeps = { store: SettingsStore };
  * Client state only, so the entry points are the store's actions. The store
  * rolls back and rethrows when the save fails, and that rethrow is what makes
  * the command fail.
+ *
+ * There is no `get`: the settings are read with `store.inspect --store settings`,
+ * the same store the screen subscribes to.
  */
 export const createSettingsFeature = (deps: SettingsFeatureDeps) => ({
-	get: command()
-		.description(
-			"Returns the saved settings: units and notifications. Picked field by field, because the store's state object also carries its actions and functions do not survive JSON.",
-		)
-		.run(async () => {
-			return settingsStoreSelectors.all(deps.store.getState());
-		}),
-
 	setUnits: command()
 		.input({ units: z.enum(["km", "mi"]) })
 		.description(

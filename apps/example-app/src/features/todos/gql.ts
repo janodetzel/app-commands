@@ -45,23 +45,8 @@ export const SET_TODO_DONE = gql`
 	${TODO_FIELDS}
 `;
 
-export const ADD_TODOS = gql`
-	mutation AddTodos($titles: [String!]!) {
-		addTodos(titles: $titles) {
-			...TodoFields
-		}
-	}
-	${TODO_FIELDS}
-`;
-
 export const REMOVE_TODO = gql`
 	mutation RemoveTodo($id: ID!) {
 		removeTodo(id: $id)
-	}
-`;
-
-export const REMOVE_ALL_TODOS = gql`
-	mutation RemoveAllTodos {
-		removeAllTodos
 	}
 `;
