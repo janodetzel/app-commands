@@ -1,5 +1,11 @@
 # @janodetzel/app-commands
 
+## 0.5.1
+
+### Patch Changes
+
+- ff62363: Rewrite the package README for npm: an introduction, a quick start, and a reference that matches the published entry points.
+
 ## 0.5.0
 
 ### Minor Changes
