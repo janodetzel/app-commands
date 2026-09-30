@@ -103,12 +103,18 @@ export function expoRouterCommands(opts: ExpoRouterCommandsOptions): Registry {
 				)
 				.run(async ({ href, params }) => {
 					const ref = readyRef();
+					const before = stateOf(ref);
 					router.navigate(params ? { pathname: href, params } : href);
 
 					const expected = expectedPathname(href, params ?? {});
 					const location = await waitFor(() => {
 						const now = locationOf(ref);
-						return now.segments.includes(NOT_FOUND_ROUTE) || samePath(now.pathname, expected)
+						if (samePath(now.pathname, expected)) return now;
+						// The container commits a navigation after `navigate` returns, so
+						// +not-found in the state from before the call is where the app
+						// started, not where this href led: it counts only once the state
+						// has changed.
+						return stateOf(ref) !== before && now.segments.includes(NOT_FOUND_ROUTE)
 							? now
 							: undefined;
 					}, focusTimeoutMs);
@@ -132,11 +138,11 @@ export function expoRouterCommands(opts: ExpoRouterCommandsOptions): Registry {
 					const ref = readyRef();
 					if (!router.canGoBack()) throw new Error("cannot go back");
 
-					const before = ref.getRootState();
+					const before = stateOf(ref);
 					router.back();
 
 					const changed = await waitFor(
-						() => (ref.getRootState() !== before ? true : undefined),
+						() => (stateOf(ref) !== before ? true : undefined),
 						focusTimeoutMs,
 					);
 					if (!changed) throw new Error(`going back changed nothing within ${focusTimeoutMs} ms`);
@@ -144,6 +150,16 @@ export function expoRouterCommands(opts: ExpoRouterCommandsOptions): Registry {
 				}),
 		},
 	});
+}
+
+/**
+ * The root state as a value to compare. The container rebuilds it from its
+ * navigators on every read, so two reads of an unchanged state are never the
+ * same object: comparing identities sees a change that has not happened, and a
+ * command would answer before its navigation had committed.
+ */
+function stateOf(ref: ExpoRouterNavigationRefLike): string {
+	return JSON.stringify(ref.getRootState()) ?? "";
 }
 
 function locationOf(ref: ExpoRouterNavigationRefLike): ExpoRouterLocation {
