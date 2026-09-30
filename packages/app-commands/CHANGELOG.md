@@ -1,5 +1,16 @@
 # @janodetzel/app-commands
 
+## 0.4.0
+
+### Minor Changes
+
+- c83bb71: The web console shows a command's result as a tree whose branches open and close. Pick a level to open every branch down to that depth, or click a branch to toggle it. A long result opens at its top level; "raw" shows the plain JSON for copying.
+- 152b642: Add an Expo Router adapter at `@janodetzel/app-commands/adapters/expo-router`.
+  `expoRouterCommands({ router, navigationRef: useNavigationContainerRef })` gives
+  `nav.navigate`, `nav.back` and `nav.inspect` for an app whose navigation is Expo
+  Router's. `navigate` takes an href, waits for the app to arrive there, and fails
+  on `+not-found` or a redirect.
+
 ## 0.3.0
 
 ### Minor Changes
