@@ -22,15 +22,15 @@ is the only file that creates instances and wires features to each other.
 
 ## Skills
 
-`skills/` holds the longer instructions, one folder per task, reachable as Claude
-Code skills through `.claude/skills`:
+`packages/app-commands/skills/` holds the longer instructions, one folder per task,
+reachable as Claude Code skills through `.claude/skills`. All but the last one ship
+to apps that use the package:
 
 | Skill                      | Use it when                                                      |
 | -------------------------- | ---------------------------------------------------------------- |
-| `driving-the-app`          | Verifying behavior at runtime with `pnpm app-commands`           |
-| `workspace-setup`          | Installing, building, running the app, debugging the environment |
+| `setting-up-an-app`        | Starting an app on the package, or deciding where a file belongs |
 | `building-a-feature`       | Adding a screen, a store, a mutation, or an entry point          |
-| `state-architecture`       | Deciding how a feature holds state                               |
+| `driving-the-app`          | Verifying behavior at runtime with `pnpm app-commands`           |
 | `maintaining-app-commands` | Changing the plugin: protocol, CLI, adapters, wire format        |
 
 ## Checks

@@ -44,6 +44,31 @@ GitHub Packages asks for a token even for a public package: `GITHUB_TOKEN` must 
 token with the `read:packages` scope (`gh auth refresh -s read:packages`, then
 `export GITHUB_TOKEN=$(gh auth token)`).
 
+Every machine that installs the app's dependencies needs that token, and CI does not
+have it by default. In GitHub Actions, `.npmrc` sees no `GITHUB_TOKEN` unless a step
+sets it, so pass the workflow's token to the install:
+
+```yaml
+permissions:
+  contents: read
+  packages: read # a job that narrows its permissions needs it too
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+```
+
+The package must also grant the app's repository access under **Package settings >
+Manage Actions access**. A build service that installs on its own machines, such as
+EAS Build, needs its own `GITHUB_TOKEN` as a secret environment variable. Use a
+classic token with only `read:packages`: GitHub Packages' npm registry does not
+accept fine-grained tokens. Without it, the install fails with `401 Unauthorized`.
+
 ## Installing it in the workspace
 
 ```jsonc
@@ -60,6 +85,25 @@ depends on it.
 `command()` needs none of them: bring whichever Standard Schema library the app
 already uses. With zod, use 4.2 or later, the release that added the JSON Schema the
 CLI and the MCP server read. An older one validates, but lists no arguments.
+
+## Agent skills
+
+The package ships instructions for the agent that works in your app, as skills in
+`packages/app-commands/skills`:
+
+| Skill                | Use it when                                                       |
+| -------------------- | ----------------------------------------------------------------- |
+| `setting-up-an-app`  | Starting an app on app-commands, or deciding where a file belongs |
+| `building-a-feature` | Adding a screen, a store, a mutation, or an entry point           |
+| `driving-the-app`    | Verifying behavior at runtime with the CLI                        |
+
+Install them into your app with the GitHub CLI, once per skill:
+
+```sh
+gh skill install janodetzel/app-commands setting-up-an-app --agent claude-code
+```
+
+`maintaining-app-commands` is for work on this package, not on an app.
 
 ## What the bridge knows about a command
 
@@ -328,6 +372,16 @@ returns a ref that is not ready, and every command answers accordingly.
 
 The adapter imports nothing from `expo-router`; it types the parts of `router` and
 the ref it calls, and a type test holds the real ones to them.
+
+Give the app its own `app/+not-found.tsx`. Without one, Expo Router shows its
+built-in unmatched-route page, which replaces the tree the root layout lives in. The
+layout unmounts, `useAppCommands` unmounts with it, and every command after a bad
+`href` answers "the app did not answer" until someone taps back. An app-owned
+`+not-found` screen renders inside the root layout, so the bridge stays up and
+`nav.back` recovers.
+
+Every file under `app/` is a route, so keep the composition root and the registry
+outside it, for example in `src/instances/index.ts` and `src/commands.ts`.
 
 `inspect` is the one read command, across every place an app keeps state. A source
 is a description, the keys it holds, and a way to read one, so a store, a cache and
