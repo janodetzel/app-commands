@@ -124,6 +124,24 @@ The CLI asks the app for its commands on every call, so a new command works afte
 
 An MCP client reaches the same commands as typed tools. [`.mcp.json`](.mcp.json) registers the `app-commands` server, which names each tool with `_` in place of the dot: `todos.newTodoSubmitted` becomes `todos_newTodoSubmitted`.
 
+## Working on the package
+
+The example app depends on the package through the workspace, and the root
+`package.json` depends on it too, so `pnpm app-commands` works from the repo root: pnpm
+links a binary only into the `node_modules/.bin` of a package that depends on it.
+
+```jsonc
+// apps/example-app/package.json
+"dependencies": { "@janodetzel/app-commands": "workspace:*" }
+```
+
+`pnpm --filter @janodetzel/app-commands web:dev` serves the web console from source, for
+work on the console itself. The Metro Shift+M menu opens it against a running app.
+
+`cli/wire/` is copied from internal Expo code. After every Expo SDK upgrade, re-read the
+files listed in `cli/wire/SOURCE.md`, recopy them if they changed, and rerun the
+simulator smoke test. Pin the `expo` peer range to the tested SDK.
+
 ## Checks
 
 Run all four before you call a change done:
@@ -169,11 +187,13 @@ exchanges the workflow's OIDC token for a short-lived publish token, so there is
 token in the repository's secrets to leak or rotate, and every release carries a
 [provenance](https://docs.npmjs.com/generating-provenance-statements) attestation that
 links it to the commit and the run that built it. It needs three things, and a publish
-that fails with `ENEEDAUTH`, `401` or `404` is missing one of them:
+that fails with `ENEEDAUTH`, `401`, `403` or `404` is missing one of them:
 
 - **The trusted publisher on npmjs.com.** Under the package's **Settings > Trusted
   publishing**: GitHub Actions, user `janodetzel`, repository `app-commands`, workflow
-  `publish.yml`, no environment.
+  `publish.yml`, no environment. Under **Allowed actions**, allow publishing directly:
+  npm allows only staged publishes by default, and a direct publish then fails with
+  `403 OIDC permission denied`.
 - **The workflow's side.** `id-token: write`, Node 22.14 or later, and npm 11.5.1 or
   later: pnpm hands the upload to the npm on `PATH`, so the workflow installs one.
 - **`repository.url` in the package's `package.json`,** which must name this
