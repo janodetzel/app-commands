@@ -187,13 +187,11 @@ exchanges the workflow's OIDC token for a short-lived publish token, so there is
 token in the repository's secrets to leak or rotate, and every release carries a
 [provenance](https://docs.npmjs.com/generating-provenance-statements) attestation that
 links it to the commit and the run that built it. It needs three things, and a publish
-that fails with `ENEEDAUTH`, `401`, `403` or `404` is missing one of them:
+that fails with `ENEEDAUTH`, `401` or `404` is missing one of them:
 
 - **The trusted publisher on npmjs.com.** Under the package's **Settings > Trusted
   publishing**: GitHub Actions, user `janodetzel`, repository `app-commands`, workflow
-  `publish.yml`, no environment. Under **Allowed actions**, allow publishing directly:
-  npm allows only staged publishes by default, and a direct publish then fails with
-  `403 OIDC permission denied`.
+  `publish.yml`, no environment.
 - **The workflow's side.** `id-token: write`, Node 22.14 or later, and npm 11.5.1 or
   later: pnpm hands the upload to the npm on `PATH`, so the workflow installs one.
 - **`repository.url` in the package's `package.json`,** which must name this

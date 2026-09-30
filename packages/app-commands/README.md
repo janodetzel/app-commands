@@ -486,15 +486,6 @@ data.
 - **Screen readiness is not solved.** `nav.navigate` waits for the route, not for the
   screen's data.
 
-## Moving from GitHub Packages
-
-Releases before 0.4.1 were published only to GitHub Packages, whose npm registry asks
-for a token even for a public package. To install from npmjs.org, remove the
-`@janodetzel:registry=https://npm.pkg.github.com` line and its `_authToken` line from
-your `.npmrc`, and anything that only existed to feed that registry a token: a
-`GITHUB_TOKEN` passed to `npm ci`, `packages: read` grants, and a `GITHUB_TOKEN` secret
-on a build service.
-
 ## License
 
 MIT. Source, issues and the changelog are on
