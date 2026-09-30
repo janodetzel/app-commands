@@ -115,6 +115,12 @@ describe("navigationCommands", () => {
  * A root stack the way Expo Router shapes it: an `__root` slot whose routes are
  * named after files. Every change replaces the state object, as the container
  * does, and `navigate` resolves an href only against the routes it was given.
+ *
+ * Like the container, it commits a navigation after `navigate` returns, on a
+ * later tick: a command reading the state right after the call still sees the
+ * screen the app was on. And like the container, `getRootState` rebuilds the
+ * state from its navigators on every call, so two reads of an unchanged state
+ * are equal but never the same object.
  */
 function fakeExpoRouter(routes: Record<string, string>) {
 	type Route = { key: string; name: string; params?: Record<string, unknown> };
@@ -132,7 +138,7 @@ function fakeExpoRouter(routes: Record<string, string>) {
 	const ref: ExpoRouterNavigationRefLike = {
 		current: {},
 		isReady: () => ready,
-		getRootState: () => rootState,
+		getRootState: () => structuredClone(rootState),
 	};
 
 	const router: ExpoRouterLike = {
@@ -147,11 +153,11 @@ function fakeExpoRouter(routes: Record<string, string>) {
 						params: { "not-found": pathname.slice(1).split("/") },
 					};
 			stack = [...stack, route];
-			commit();
+			setTimeout(commit, 0);
 		},
 		back() {
 			stack = stack.slice(0, -1);
-			commit();
+			setTimeout(commit, 0);
 		},
 		canGoBack: () => stack.length > 1,
 	};
@@ -252,6 +258,27 @@ describe("expoRouterCommands", () => {
 
 		expect(res.code).toBe("COMMAND_FAILED");
 		expect(res.error).toMatch(/no route matches \/nowhere; the app is showing \+not-found/);
+	});
+
+	it("leaves +not-found for a route that exists", async () => {
+		// Right after `navigate` the app still shows +not-found; that is where it
+		// started, not where it landed.
+		const { registry } = build({ "/settings": "settings" });
+		await call(registry, "nav.navigate", { href: "/nowhere" });
+
+		expect(await call(registry, "nav.navigate", { href: "/settings" })).toMatchObject({
+			ok: true,
+			result: { pathname: "/settings", segments: ["settings"] },
+		});
+	});
+
+	it("still fails on a second href that matches nothing", async () => {
+		const { registry } = build();
+		await call(registry, "nav.navigate", { href: "/nowhere" });
+
+		expect(failed(await call(registry, "nav.navigate", { href: "/elsewhere" })).error).toMatch(
+			/no route matches \/elsewhere; the app is showing \+not-found/,
+		);
 	});
 
 	it("fails and says where the app is when a redirect sends it elsewhere", async () => {
