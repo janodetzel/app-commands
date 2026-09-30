@@ -74,7 +74,7 @@ export { default } from "@/screens/editor/editor-screen";
 
 A feature must load in plain Node, with no Metro and no React Native. That is what lets a test build it with in-memory dependencies, and it is the precondition for running commands without a device. `no-ui-in-logic` checks the imports it knows about. It cannot see the rest:
 
-- No `react-native-*` package and no native SDK in a feature or in `src/domain`. The rule's default list does not include them, so widen it (see [Guardrails](#guardrails)).
+- No `react-native-*` package and no native SDK in a feature or in `src/domain`. The rule's defaults cover `react-native-*`, but not a native SDK's own scope such as `@maplibre/*`, so add it (see [Guardrails](#guardrails)).
 - No bare `__DEV__`. Metro defines it, and Node throws a `ReferenceError` on it. Read it once in `src/lib`: `export const isDev = typeof __DEV__ !== "undefined" && __DEV__;`.
 - No platform extension files (`.ios.ts`, `.android.ts`) in a feature. Metro picks them, and Node does not. Put the platform split in `src/adapters` and pass the adapter in.
 - No platform decisions inside the domain. Pass the platform in as an argument, for example `resolveDesign(design, Platform.OS)`, from the screen.
@@ -129,7 +129,8 @@ const PLATFORM_MODULES = [
 	"expo-*",
 	"@react-navigation/*",
 	"react-native-*",
-	// Add the scope of every native SDK the app uses.
+	// `modules` replaces the defaults above, so keep them, and add the scope
+	// of every native SDK the app uses.
 ];
 
 module.exports = [
@@ -192,6 +193,8 @@ module.exports = {
 };
 ```
 
+The recommended ESLint config also turns on `no-store-action-in-ui` for `src/screens`, `src/components`, `src/hooks`, and `src/navigation`. It leaves `src/app` alone, where the app starts. It stops a screen from changing state through a store action instead of a command.
+
 Type-only imports stay allowed, so a port may name an adapter's types. After you add a rule, plant a violation and confirm it fails.
 
 ## Test without a device
@@ -201,7 +204,7 @@ Run vitest in plain Node, with no React Native preset and no mocks. A test that 
 - **`test/adapters.ts`** builds the app the way `src/instances` does, over in-memory adapters that record what they were asked to do. Tests assert on those records.
 - **`test/registry.ts`** builds the registry the way `src/commands.ts` does. It does not import `src/commands.ts`, which reaches native modules. For the navigation slice, pass a stand-in that is not ready: `{ router: { navigate() {}, back() {}, canGoBack: () => false }, navigationRef: () => null }`.
 - **Feature tests** sit next to each feature (`src/features/<f>/<f>.test.ts`) and call its commands.
-- **`test/conformance.test.ts`** runs `checkRegistry` over the whole registry, with `samples` for every read command.
+- **`test/conformance.test.ts`** runs `checkRegistry` over the whole registry, with `samples` for every read command. It also runs `checkUiCallers` over the UI's source, read as text with `import.meta.glob("../src/{app,screens,components,hooks}/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true })`, so a feature command no screen calls fails the build.
 
 Map the `@/` path alias in `vitest.config.mts`, narrowest alias first. To read files in a test, use `import.meta.glob` rather than `fs`, because a React Native project has no `@types/node`. Name the script `test`, so a CI step that runs `npm run test --if-present` picks it up.
 

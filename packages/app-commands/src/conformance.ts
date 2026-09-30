@@ -168,3 +168,59 @@ async function roundTripProblems(
 
 	return [];
 }
+
+export type UiCallersOptions = {
+	/**
+	 * The UI's source text, one entry per file: the screens, their components and
+	 * their hooks. In a test, read it with the bundler's glob, for example
+	 * `import.meta.glob("../src/screens/**\/*.tsx", { query: "?raw", import: "default", eager: true })`,
+	 * which needs no `fs` and so no Node types in a React Native project.
+	 */
+	sources: readonly string[] | Readonly<Record<string, string>>;
+	/**
+	 * Namespaces whose commands have no control by design. Defaults to the
+	 * adapters' own namespaces: `store`, `nav`, `apollo` and `storage`. Add a
+	 * namespace the app gave an adapter with its `namespace` option.
+	 */
+	exempt?: readonly string[];
+};
+
+/** The namespaces the built-in adapters register under by default. */
+const ADAPTER_NAMESPACES = ["store", "nav", "apollo", "storage"];
+
+/**
+ * Checks that every feature command has a caller in the UI, and returns the
+ * ones that do not. An empty array means every command has its control.
+ *
+ * Principle 1 asks for a command behind every control. No tool can see a control
+ * with no command, but the other direction is checkable: a command named after a
+ * control that no screen calls is dead, or something an agent can do that no
+ * user can, and an agent's check through it proves nothing about the app.
+ *
+ * A call is found by its text. A screen calls a command through the feature
+ * instance the registry holds, so `profile.settings.unitButtonTapped` is called
+ * as `profileFeature.settings.unitButtonTapped(`: the check looks for
+ * `.settings.unitButtonTapped(`. A call through an alias or a destructured
+ * variable is not found; call the command through its instance. A command named
+ * after its control does not collide with unrelated code, but a bare name such
+ * as `add` matches `set.add(` and passes.
+ */
+export function checkUiCallers(registry: Registry, opts: UiCallersOptions): ConformanceProblem[] {
+	const files = Array.isArray(opts.sources) ? opts.sources : Object.values(opts.sources);
+	const text = files.join("\n");
+	const exempt = new Set(opts.exempt ?? ADAPTER_NAMESPACES);
+	const problems: ConformanceProblem[] = [];
+
+	for (const name of Object.keys(registry)) {
+		const [namespace, ...path] = name.split(".");
+		if (exempt.has(namespace!)) continue;
+		const call = `.${path.join(".")}(`;
+		if (!text.includes(call)) {
+			problems.push({
+				command: name,
+				problem: `has no caller in the UI: no screen, component or hook contains \`${call}\`. A command named after a control needs that control, or it is dead or reachable only by an agent`,
+			});
+		}
+	}
+	return problems;
+}

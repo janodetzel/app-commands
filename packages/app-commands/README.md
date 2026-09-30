@@ -21,7 +21,7 @@ features reachable ship here too, behind `/eslint` and `/depcruise`.
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                      |
 | `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                    |
-| `@janodetzel/app-commands/conformance` | `checkRegistry`, the suite an app runs against its own registry                                                                                                      |
+| `@janodetzel/app-commands/conformance` | `checkRegistry` and `checkUiCallers`, the suites an app runs against its own registry                                                                                |
 | `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                   |
 | `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `zustand`. One library each, so an optional peer you did not install is one you never import |
 | `@janodetzel/app-commands/eslint`      | The five architecture rules, as a flat-config ESLint plugin                                                                                                          |
@@ -410,13 +410,14 @@ import appCommands from "@janodetzel/app-commands/eslint";
 export default [...appCommands.configs.recommended];
 ```
 
-| Rule                                   | What it catches                                                                                                                  |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `app-commands/no-ui-in-logic`          | react, react-native, expo-\*, @react-navigation/\* imported into a logic file, which would make it uncallable from outside React |
-| `app-commands/no-cross-feature-import` | one feature importing another, instead of being wired together where the instances are created                                   |
-| `app-commands/no-set-outside-store`    | `set(…)` or `.setState(…)` outside a `store.ts`, which is a state change with no named entry point                               |
-| `app-commands/no-ambient-io`           | `Date.now` and `Math.random` in a logic file, so a caller and a test see the same values                                         |
-| `app-commands/require-rethrow`         | a `catch` in a store action that rolls back but does not rethrow, so the action resolves as if the write worked                  |
+| Rule                                   | What it catches                                                                                                                                                                        |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app-commands/no-ui-in-logic`          | react, react-native, react-native-\*, expo-\*, @react-navigation/\* imported into a logic file, which would make it uncallable from outside React                                      |
+| `app-commands/no-cross-feature-import` | one feature importing another, instead of being wired together where the instances are created                                                                                         |
+| `app-commands/no-set-outside-store`    | `set(…)` or `.setState(…)` outside a `store.ts`, which is a state change with no named entry point                                                                                     |
+| `app-commands/no-store-action-in-ui`   | a UI file calling a store action (`store.getState().add()`), destructuring `getState()`, or taking a whole store with `useStore(store)`, all of which change state without the command |
+| `app-commands/no-ambient-io`           | `Date.now` and `Math.random` in a logic file, so a caller and a test see the same values                                                                                               |
+| `app-commands/require-rethrow`         | a `catch` in a store action that rolls back but does not rethrow, so the action resolves as if the write worked                                                                        |
 
 Each rule picks its own files from the path, so the recommended config needs no glob
 that mirrors your layout. A _logic file_ is every file under `src/features/`, at any
@@ -431,10 +432,37 @@ an app that still keeps its screens next to the logic:
 }],
 ```
 
+`no-store-action-in-ui` applies to the UI instead: every file under `src/screens/`,
+`src/components/`, `src/hooks/` or `src/navigation/`, except tests. It leaves
+`src/app/` alone, because the app starts there, and loading the stores at startup
+belongs there.
+Pass `uiDirs` for another layout. `no-ui-in-logic` takes `modules` to add a native
+SDK's scope to what counts as a UI import. The option replaces the default list, so
+repeat it.
+
 The rule that carries the most correctness is not in the plugin: keep
 `@typescript-eslint/no-floating-promises` an error. Every entry point returns a
 promise that resolves only when its work is finished, and one fire-and-forget call
 makes a command report success before the save runs.
+
+`checkUiCallers` from `/conformance` checks principle 1 from the side a tool can
+see. It takes the UI's source text and names every feature command no screen calls.
+A command named after a control needs that control, or it is dead or reachable only
+by an agent. Read the sources as text in a test, so no screen renders:
+
+```ts
+const screens = import.meta.glob<string>("../src/screens/**/*.{ts,tsx}", {
+	query: "?raw",
+	import: "default",
+	eager: true,
+});
+expect(checkUiCallers(registry, { sources: screens })).toEqual([]);
+```
+
+It finds a call by its text, `.<path below the namespace>(`, so call a command
+through its feature instance: `profileFeature.settings.unitButtonTapped(` for
+`profile.settings.unitButtonTapped`. The adapters' namespaces (`store`, `nav`,
+`apollo`, `storage`) are exempt; pass `exempt` to add one you renamed.
 
 The dependency-cruiser half is about direction:
 

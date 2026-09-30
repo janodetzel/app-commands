@@ -43,6 +43,12 @@ describe("no-ui-in-logic", () => {
 		],
 		invalid: [
 			{
+				// A native module published as its own package needs the native runtime too.
+				code: `import Share from "react-native-share";`,
+				filename: logic("todos", "api.ts"),
+				errors: [{ messageId: "uiInLogic" }],
+			},
+			{
 				code: `import { useState } from "react";`,
 				filename: logic("todos", "index.ts"),
 				errors: [{ messageId: "uiInLogic" }],
@@ -143,6 +149,58 @@ describe("no-set-outside-store", () => {
 				code: `settingsStore.setState({ units: "mi" });`,
 				filename: `${APP}/app/instances.ts`,
 				errors: [{ messageId: "setState" }],
+			},
+		],
+	});
+});
+
+describe("no-store-action-in-ui", () => {
+	const hook = (file: string) => `${APP}/hooks/${file}`;
+	const route = (file: string) => `${APP}/app/${file}`;
+
+	run("no-store-action-in-ui", {
+		valid: [
+			// The screen calls the command, and reads through a selector.
+			{
+				code: `todosFeature.checkboxTapped({ id, done }); const ids = useStore(todosStore, todosStoreSelectors.ids);`,
+				filename: screen("todos/TodosScreen.tsx"),
+			},
+			// A one-off read passes the state to a selector.
+			{
+				code: `const todo = todosStoreSelectors.byId(id)(todosStore.getState());`,
+				filename: screen("todos/TodoScreen.tsx"),
+			},
+			// A feature is where the command calls the store's action.
+			{
+				code: `await deps.store.getState().add(itemId);`,
+				filename: logic("favorites", "feature.ts"),
+			},
+			// A test may drive the store directly.
+			{ code: `todosStore.getState().add("x");`, filename: screen("todos/TodosScreen.test.tsx") },
+			// src/app is where the app starts, so its root may load the stores.
+			{ code: `void settingsStore.getState().load();`, filename: route("App.tsx") },
+			// uiDirs narrows the rule for another layout.
+			{
+				code: `todosStore.getState().add("x");`,
+				filename: screen("todos/TodosScreen.tsx"),
+				options: [{ uiDirs: ["app/views"] }],
+			},
+		],
+		invalid: [
+			{
+				code: `todosStore.getState().add(title);`,
+				filename: screen("todos/TodosScreen.tsx"),
+				errors: [{ messageId: "action" }],
+			},
+			{
+				code: `const { add, remove } = favoritesStore.getState();`,
+				filename: hook("use-favorites.ts"),
+				errors: [{ messageId: "destructured" }],
+			},
+			{
+				code: `export const useSettings = () => useStore(settingsStore);`,
+				filename: hook("use-settings.ts"),
+				errors: [{ messageId: "wholeStore" }],
 			},
 		],
 	});

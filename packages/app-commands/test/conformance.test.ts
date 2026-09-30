@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { checkRegistry } from "../src/conformance";
+import { checkRegistry, checkUiCallers } from "../src/conformance";
 import type { Command, Registry } from "../src/core/command";
 
 /**
@@ -116,5 +116,59 @@ describe("checkRegistry", () => {
 			{ "todos.list": {} },
 		);
 		expect(found).toEqual([]);
+	});
+});
+
+describe("checkUiCallers", () => {
+	const registry: Registry = {
+		"todos.checkboxTapped": ok(),
+		"todos.deleteButtonTapped": ok(),
+		"profile.settings.unitButtonTapped": ok(),
+		"store.inspect": ok(),
+		"nav.navigate": ok(),
+	};
+
+	it("names each feature command no screen calls, and nothing else", () => {
+		const sources = [
+			"onPress={() => todosFeature.checkboxTapped({ id, done: !done })}",
+			"profileFeature.settings.unitButtonTapped({ units: 'km' })",
+		];
+
+		expect(checkUiCallers(registry, { sources })).toEqual([
+			expect.objectContaining({ command: "todos.deleteButtonTapped" }),
+		]);
+	});
+
+	it("matches the path below the namespace, so a nested command needs its sub-feature in the call", () => {
+		// `settingsFeature.unitButtonTapped(` is a different path from the one registered.
+		const problems = checkUiCallers(registry, {
+			sources: [
+				"todosFeature.checkboxTapped(); todosFeature.deleteButtonTapped(); settingsFeature.unitButtonTapped()",
+			],
+		});
+		expect(problems.map((p) => p.command)).toEqual(["profile.settings.unitButtonTapped"]);
+	});
+
+	it("leaves the adapters' namespaces alone, and takes more to exempt", () => {
+		const onlyAdapters: Registry = {
+			"store.inspect": ok(),
+			"nav.back": ok(),
+			"screens.navigate": ok(),
+		};
+
+		expect(checkUiCallers(onlyAdapters, { sources: [] }).map((p) => p.command)).toEqual([
+			"screens.navigate",
+		]);
+		expect(
+			checkUiCallers(onlyAdapters, { sources: [], exempt: ["store", "nav", "screens"] }),
+		).toEqual([]);
+	});
+
+	it("takes the sources as a glob result, keyed by path", () => {
+		const sources = {
+			"./TodosScreen.tsx": "todosFeature.checkboxTapped(); todosFeature.deleteButtonTapped();",
+			"./SettingsScreen.tsx": "profileFeature.settings.unitButtonTapped();",
+		};
+		expect(checkUiCallers(registry, { sources })).toEqual([]);
 	});
 });

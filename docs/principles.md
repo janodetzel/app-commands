@@ -76,16 +76,18 @@ A guideline nobody can point to in a review is a preference. Each principle abov
 
 | Principle | Check                                                                                                                                                   |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1         | A conformance check (`checkUiCallers`) fails when a feature command has no caller in the UI                                                             |
 | 2, 5      | A test builds the registry and asserts it uses the shared instances                                                                                     |
+| 2         | Lint forbids a UI file calling a store action or taking a whole store, which would change state without the command                                     |
 | 3         | `no-floating-promises` as an error in logic files                                                                                                       |
 | 4         | Lint forbids store mutation outside store files                                                                                                         |
-| 6         | Lint forbids `Date.now`, `new Date()` without arguments, and `Math.random` in logic files                                                               |
+| 6         | Lint forbids `Date.now`, `Date.parse`, and `Math.random` in logic files. `new Date()` without arguments is not caught and stays a review habit          |
 | 7         | dependency-cruiser forbids imports between sibling feature folders, deep imports past a feature's barrel, and a feature importing the app               |
 | 8         | A conformance test asserts every description is non-empty and longer than its command name                                                              |
 | 10        | dependency-cruiser forbids UI, state, and validation libraries in the core and in `command()`; a test drives `handleRequest` with a hand-built registry |
 | All       | A release bundle contains no trace of the command transport                                                                                             |
 
-Principle 1 has no mechanical check, and that is worth admitting. Nothing can prove a button has a command equivalent. It stays a review habit, which means it is the principle most likely to erode.
+Principle 1 is only half checked, and that is worth admitting. `checkUiCallers` proves every feature command has a caller in the UI, but nothing can prove a button has a command equivalent. That half stays a review habit, which means it is the principle most likely to erode.
 
 ## What these principles do not claim
 

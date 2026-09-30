@@ -28,7 +28,7 @@ src/screens/<feature>/
 
 ## Steps
 
-1. **Decide the entry points.** One per capability. Name each after the control a user touches and the gesture that triggers it: `favoriteButtonTapped`, `titleTyped`, `photoPicked`. A command named after a control has that control, so a command no screen calls stands out.
+1. **Decide the entry points.** One per capability. Name each after the control a user touches and the gesture that triggers it: `favoriteButtonTapped`, `titleTyped`, `photoPicked`. A command named after a control has that control, and `checkUiCallers` names a command no screen calls.
 
    Each gets an argument schema and a description. The description is the only thing an agent knows about the command. Say what it does, what it returns, and what it does _not_ do. If the command needs the app in some state first, say how to get there, for example which screen or sheet to open with `nav.navigate`. Never generate the description from the method name.
 
@@ -78,7 +78,7 @@ src/screens/<feature>/
 
 6. **Register it.** Add the feature to the `featureCommands({ ... })` object in the registry, keyed by its namespace. That registers each command, named by its path. Nothing else is registered by hand.
 
-7. **Test and verify.** Build the feature with in-memory dependencies and call its commands in a unit test, no simulator needed. Run `checkRegistry` from `@janodetzel/app-commands/conformance` against the registry. Then verify the behavior in the running app with the `driving-the-app` skill.
+7. **Test and verify.** Build the feature with in-memory dependencies and call its commands in a unit test, no simulator needed. Run `checkRegistry` from `@janodetzel/app-commands/conformance` against the registry, and `checkUiCallers` against the UI's source. Then verify the behavior in the running app with the `driving-the-app` skill.
 
 ## What the checks catch
 
@@ -87,8 +87,9 @@ When a rule blocks you, move the code. Do not disable or widen the rule.
 | Rule                                                      | Catches                                                                                                                                                                                            |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@typescript-eslint/no-floating-promises`                 | A promise nobody awaits. Not part of the plugin: enable it as an error.                                                                                                                            |
-| `app-commands/no-ui-in-logic`                             | React, React Native, Expo, or React Navigation imported into a logic file                                                                                                                          |
+| `app-commands/no-ui-in-logic`                             | React, React Native, a `react-native-*` package, Expo, or React Navigation imported into a logic file                                                                                              |
 | `app-commands/no-set-outside-store`                       | `set` or `setState` outside `store.ts`                                                                                                                                                             |
+| `app-commands/no-store-action-in-ui`                      | A UI file calling a store action, destructuring `getState()`, or taking a whole store with `useStore(store)`                                                                                       |
 | `app-commands/require-rethrow`                            | A `catch` in `store.ts` that does not rethrow                                                                                                                                                      |
 | `app-commands/no-ambient-io`                              | `Date.now`, `Date.parse`, or `Math.random` in a logic file                                                                                                                                         |
 | `app-commands/no-cross-feature-import`                    | One feature importing another                                                                                                                                                                      |
@@ -96,15 +97,15 @@ When a rule blocks you, move the code. Do not disable or widen the rule.
 | `no-deep-feature-import` (app-commands/depcruise)         | A file outside the feature importing anything but its `index.ts` barrel                                                                                                                            |
 | `features-do-not-import-the-app` (app-commands/depcruise) | A feature importing `src/app/`, `src/screens/` or `src/navigation/`                                                                                                                                |
 | `checkRegistry`                                           | A duplicate or malformed name, a description no longer than the name, a schema that is not an object, a `parse` that accepts anything, and a non-JSON-safe result for commands listed in `samples` |
+| `checkUiCallers`                                          | A feature command that no screen, component, or hook calls                                                                                                                                         |
 
 ## Mistakes the checks miss
 
-- A button that does something no command can do. No tool can detect it. Check that every user action has a command.
+- A button that does something no command can do. No tool can detect it, so check that every user action has a command. `checkUiCallers` catches only the reverse, a command no screen calls.
 - A mutation hook with its own cache update inside a component. A command cannot reach that update.
 - Mutation errors returned in the result, not thrown, for example with an `errorPolicy` of `"all"`. Check the error and throw, or the command reports success on a failed write.
 - A `catch` that swallows the error outside `store.ts`, for example in `api.ts` or a handler. `require-rethrow` checks store files only.
 - `new Date()` without arguments in a logic file. `no-ambient-io` does not catch it, so take the time from the `clock` dependency.
-- A screen that changes state by calling a store action (`store.getState().action()`), or that takes the whole store with `useStore(store)` and calls an action from it. The change skips the command and its rules.
 - A command that navigates. An agent then cannot run it without leaving the screen it is checking.
 - A command that takes an id no read command returns. An agent has no way to find a valid value.
 - A handler that awaits a promise that settles when the user dismisses something, such as `WebBrowser.openBrowserAsync`. The command times out. Let the adapter present the UI and return.

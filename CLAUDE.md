@@ -79,8 +79,10 @@ blocks you, move the code, do not widen the rule.
 
 In the app the boundaries are app-commands' ESLint rules (`app-commands/*`), matching on file names and
 resolved paths: `no-ui-in-logic`, `no-cross-feature-import`, `no-set-outside-store`,
-`no-ambient-io`, `require-rethrow`. A _logic file_ is every file under `src/features/`,
-at any depth, except tests: screens live outside it, so nothing inside needs React.
+`no-ambient-io`, `require-rethrow`, and `no-store-action-in-ui`. A _logic file_ is every
+file under `src/features/`, at any depth, except tests: screens live outside it, so
+nothing inside needs React. `no-store-action-in-ui` checks the UI files instead, under
+`src/screens/`, `src/components/`, `src/hooks/`, and `src/navigation/`.
 
 depcruise adds the direction: a feature never imports `app/`, `screens/` or
 `navigation/`, code outside a feature imports it through its `index.ts` barrel only

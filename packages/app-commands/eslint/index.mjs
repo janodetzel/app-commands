@@ -13,6 +13,7 @@
 import noAmbientIo from "./rules/no-ambient-io.mjs";
 import noCrossFeatureImport from "./rules/no-cross-feature-import.mjs";
 import noSetOutsideStore from "./rules/no-set-outside-store.mjs";
+import noStoreActionInUi from "./rules/no-store-action-in-ui.mjs";
 import noUiInLogic from "./rules/no-ui-in-logic.mjs";
 import requireRethrow from "./rules/require-rethrow.mjs";
 
@@ -20,6 +21,7 @@ const rules = {
 	"no-ambient-io": noAmbientIo,
 	"no-cross-feature-import": noCrossFeatureImport,
 	"no-set-outside-store": noSetOutsideStore,
+	"no-store-action-in-ui": noStoreActionInUi,
 	"no-ui-in-logic": noUiInLogic,
 	"require-rethrow": requireRethrow,
 };
@@ -45,6 +47,7 @@ const recommended = [
 			"app-commands/no-ambient-io": "error",
 			"app-commands/no-cross-feature-import": "error",
 			"app-commands/no-set-outside-store": "error",
+			"app-commands/no-store-action-in-ui": "error",
 			"app-commands/no-ui-in-logic": "error",
 			"app-commands/require-rethrow": "error",
 		},
