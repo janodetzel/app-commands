@@ -50,6 +50,26 @@ export function isLogicFile(filename, options = {}) {
 	return options.logicFiles ? options.logicFiles.includes(stem(found.file)) : true;
 }
 
+/**
+ * Where an app keeps its UI, relative to the repository root. `src/app` is left
+ * out: it is where the app starts - the composition root and root component in a
+ * React Navigation app, the layouts in an Expo Router one - and loading the
+ * stores at startup belongs there.
+ */
+export const DEFAULT_UI_DIRS = ["src/screens", "src/components", "src/hooks", "src/navigation"];
+
+/**
+ * A UI file is any file under one of `uiDirs`, at any depth, except tests. The
+ * UI is a client of the features, like the command registry, so it changes
+ * state the way the registry does: by calling a command.
+ */
+export function isUiFile(filename, options = {}) {
+	const posix = toPosix(filename);
+	if (isTestFile(posix)) return false;
+	const dirs = options.uiDirs ?? DEFAULT_UI_DIRS;
+	return dirs.some((dir) => posix.includes(`/${dir.replace(/^\/+|\/+$/g, "")}/`));
+}
+
 /** Named `store`, wherever it lives. The only place `set` may be called. */
 export function isStoreFile(filename) {
 	return stem(toPosix(filename)) === "store";

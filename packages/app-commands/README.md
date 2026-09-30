@@ -21,7 +21,7 @@ features reachable ship here too, behind `/eslint` and `/depcruise`.
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                      |
 | `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                    |
-| `@janodetzel/app-commands/conformance` | `checkRegistry`, the suite an app runs against its own registry                                                                                                      |
+| `@janodetzel/app-commands/conformance` | `checkRegistry` and `checkUiCallers`, the suites an app runs against its own registry                                                                                |
 | `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                   |
 | `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `zustand`. One library each, so an optional peer you did not install is one you never import |
 | `@janodetzel/app-commands/eslint`      | The five architecture rules, as a flat-config ESLint plugin                                                                                                          |
@@ -30,19 +30,23 @@ features reachable ship here too, behind `/eslint` and `/depcruise`.
 The binaries are `app-commands` and `app-commands-mcp`. From the repo root, run the CLI
 as `pnpm app-commands`.
 
-## Installing from GitHub Packages
+## Installing
 
-The package is published to GitHub Packages, not npmjs.org. Point the scope at it in
-the consuming project's `.npmrc`:
+The package is published to npmjs.org:
 
 ```
-@janodetzel:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+npm install @janodetzel/app-commands
 ```
 
-GitHub Packages asks for a token even for a public package: `GITHUB_TOKEN` must be a
-token with the `read:packages` scope (`gh auth refresh -s read:packages`, then
-`export GITHUB_TOKEN=$(gh auth token)`).
+It installs like any other public package: no `.npmrc` entry and no token, locally, in
+CI, or on a build service such as EAS Build.
+
+Earlier releases went to GitHub Packages, whose npm registry asks for a token even for
+a public package. An app installed from there points the `@janodetzel` scope at
+`npm.pkg.github.com` in its `.npmrc`. Remove those lines to install from npmjs.org, and
+with them anything that only existed to feed that registry a token: a `GITHUB_TOKEN`
+passed to `npm ci`, `packages: read` grants, and a `GITHUB_TOKEN` secret on the build
+service.
 
 ## Installing it in the workspace
 
@@ -60,6 +64,25 @@ depends on it.
 `command()` needs none of them: bring whichever Standard Schema library the app
 already uses. With zod, use 4.2 or later, the release that added the JSON Schema the
 CLI and the MCP server read. An older one validates, but lists no arguments.
+
+## Agent skills
+
+The package ships instructions for the agent that works in your app, as skills in
+`packages/app-commands/skills`:
+
+| Skill                | Use it when                                                       |
+| -------------------- | ----------------------------------------------------------------- |
+| `setting-up-an-app`  | Starting an app on app-commands, or deciding where a file belongs |
+| `building-a-feature` | Adding a screen, a store, a mutation, or an entry point           |
+| `driving-the-app`    | Verifying behavior at runtime with the CLI                        |
+
+Install them into your app with the GitHub CLI, once per skill:
+
+```sh
+gh skill install janodetzel/app-commands setting-up-an-app --agent claude-code
+```
+
+`maintaining-app-commands` is for work on this package, not on an app.
 
 ## What the bridge knows about a command
 
@@ -329,6 +352,16 @@ returns a ref that is not ready, and every command answers accordingly.
 The adapter imports nothing from `expo-router`; it types the parts of `router` and
 the ref it calls, and a type test holds the real ones to them.
 
+Give the app its own `app/+not-found.tsx`. Without one, Expo Router shows its
+built-in unmatched-route page, which replaces the tree the root layout lives in. The
+layout unmounts, `useAppCommands` unmounts with it, and every command after a bad
+`href` answers "the app did not answer" until someone taps back. An app-owned
+`+not-found` screen renders inside the root layout, so the bridge stays up and
+`nav.back` recovers.
+
+Every file under `app/` is a route, so keep the composition root and the registry
+outside it, for example in `src/instances/index.ts` and `src/commands.ts`.
+
 `inspect` is the one read command, across every place an app keeps state. A source
 is a description, the keys it holds, and a way to read one, so a store, a cache and
 AsyncStorage answer the same `state.get` — and a feature ships only the commands
@@ -356,13 +389,14 @@ import appCommands from "@janodetzel/app-commands/eslint";
 export default [...appCommands.configs.recommended];
 ```
 
-| Rule                                   | What it catches                                                                                                                  |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `app-commands/no-ui-in-logic`          | react, react-native, expo-\*, @react-navigation/\* imported into a logic file, which would make it uncallable from outside React |
-| `app-commands/no-cross-feature-import` | one feature importing another, instead of being wired together where the instances are created                                   |
-| `app-commands/no-set-outside-store`    | `set(…)` or `.setState(…)` outside a `store.ts`, which is a state change with no named entry point                               |
-| `app-commands/no-ambient-io`           | `Date.now` and `Math.random` in a logic file, so a caller and a test see the same values                                         |
-| `app-commands/require-rethrow`         | a `catch` in a store action that rolls back but does not rethrow, so the action resolves as if the write worked                  |
+| Rule                                   | What it catches                                                                                                                                                                        |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app-commands/no-ui-in-logic`          | react, react-native, react-native-\*, expo-\*, @react-navigation/\* imported into a logic file, which would make it uncallable from outside React                                      |
+| `app-commands/no-cross-feature-import` | one feature importing another, instead of being wired together where the instances are created                                                                                         |
+| `app-commands/no-set-outside-store`    | `set(…)` or `.setState(…)` outside a `store.ts`, which is a state change with no named entry point                                                                                     |
+| `app-commands/no-store-action-in-ui`   | a UI file calling a store action (`store.getState().add()`), destructuring `getState()`, or taking a whole store with `useStore(store)`, all of which change state without the command |
+| `app-commands/no-ambient-io`           | `Date.now` and `Math.random` in a logic file, so a caller and a test see the same values                                                                                               |
+| `app-commands/require-rethrow`         | a `catch` in a store action that rolls back but does not rethrow, so the action resolves as if the write worked                                                                        |
 
 Each rule picks its own files from the path, so the recommended config needs no glob
 that mirrors your layout. A _logic file_ is every file under `src/features/`, at any
@@ -377,10 +411,37 @@ an app that still keeps its screens next to the logic:
 }],
 ```
 
+`no-store-action-in-ui` applies to the UI instead: every file under `src/screens/`,
+`src/components/`, `src/hooks/` or `src/navigation/`, except tests. It leaves
+`src/app/` alone, because the app starts there, and loading the stores at startup
+belongs there.
+Pass `uiDirs` for another layout. `no-ui-in-logic` takes `modules` to add a native
+SDK's scope to what counts as a UI import. The option replaces the default list, so
+repeat it.
+
 The rule that carries the most correctness is not in the plugin: keep
 `@typescript-eslint/no-floating-promises` an error. Every entry point returns a
 promise that resolves only when its work is finished, and one fire-and-forget call
 makes a command report success before the save runs.
+
+`checkUiCallers` from `/conformance` checks principle 1 from the side a tool can
+see. It takes the UI's source text and names every feature command no screen calls.
+A command named after a control needs that control, or it is dead or reachable only
+by an agent. Read the sources as text in a test, so no screen renders:
+
+```ts
+const screens = import.meta.glob<string>("../src/screens/**/*.{ts,tsx}", {
+	query: "?raw",
+	import: "default",
+	eager: true,
+});
+expect(checkUiCallers(registry, { sources: screens })).toEqual([]);
+```
+
+It finds a call by its text, `.<path below the namespace>(`, so call a command
+through its feature instance: `profileFeature.settings.unitButtonTapped(` for
+`profile.settings.unitButtonTapped`. The adapters' namespaces (`store`, `nav`,
+`apollo`, `storage`) are exempt; pass `exempt` to add one you renamed.
 
 The dependency-cruiser half is about direction:
 

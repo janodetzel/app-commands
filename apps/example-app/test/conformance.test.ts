@@ -1,7 +1,8 @@
+/// <reference types="vite/client" />
 import { ApolloClient, InMemoryCache } from "@apollo/client";
 import { apolloCommands } from "@janodetzel/app-commands/adapters/apollo";
 import { buildRegistry, featureCommands } from "@janodetzel/app-commands";
-import { checkRegistry } from "@janodetzel/app-commands/conformance";
+import { checkRegistry, checkUiCallers } from "@janodetzel/app-commands/conformance";
 import { describe, expect, it } from "vitest";
 
 import { apiLink } from "../src/server/server";
@@ -51,5 +52,16 @@ describe("the registry this app builds", () => {
 		});
 
 		expect(problems).toEqual([]);
+	});
+
+	it("has a screen that calls every feature command", () => {
+		// Read as text: the check looks for the call, and never renders a screen.
+		const screens = import.meta.glob<string>("../src/screens/**/*.{ts,tsx}", {
+			query: "?raw",
+			import: "default",
+			eager: true,
+		});
+
+		expect(checkUiCallers(buildAppRegistry(), { sources: screens })).toEqual([]);
 	});
 });

@@ -6,6 +6,9 @@ const DEFAULT_MODULES = [
 	"react",
 	"react-native",
 	"react-native/*",
+	// Native modules published as their own packages: react-native-share,
+	// react-native-view-shot, react-native-mmkv. Each needs the native runtime.
+	"react-native-*",
 	"react-dom",
 	"expo",
 	"expo-*",
