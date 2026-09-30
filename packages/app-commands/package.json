@@ -33,7 +33,17 @@
 	},
 	"keywords": [
 		"expo",
-		"devtools"
+		"react-native",
+		"expo-router",
+		"ai-agents",
+		"mcp",
+		"model-context-protocol",
+		"cli",
+		"devtools",
+		"commands",
+		"testing",
+		"zustand",
+		"apollo"
 	],
 	"files": [
 		"build",

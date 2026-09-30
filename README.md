@@ -124,6 +124,24 @@ The CLI asks the app for its commands on every call, so a new command works afte
 
 An MCP client reaches the same commands as typed tools. [`.mcp.json`](.mcp.json) registers the `app-commands` server, which names each tool with `_` in place of the dot: `todos.newTodoSubmitted` becomes `todos_newTodoSubmitted`.
 
+## Working on the package
+
+The example app depends on the package through the workspace, and the root
+`package.json` depends on it too, so `pnpm app-commands` works from the repo root: pnpm
+links a binary only into the `node_modules/.bin` of a package that depends on it.
+
+```jsonc
+// apps/example-app/package.json
+"dependencies": { "@janodetzel/app-commands": "workspace:*" }
+```
+
+`pnpm --filter @janodetzel/app-commands web:dev` serves the web console from source, for
+work on the console itself. The Metro Shift+M menu opens it against a running app.
+
+`cli/wire/` is copied from internal Expo code. After every Expo SDK upgrade, re-read the
+files listed in `cli/wire/SOURCE.md`, recopy them if they changed, and rerun the
+simulator smoke test. Pin the `expo` peer range to the tested SDK.
+
 ## Checks
 
 Run all four before you call a change done:
@@ -161,28 +179,6 @@ does both.
    `@janodetzel/app-commands@0.2.0` and creates a GitHub release for it.
 
 Run `pnpm changeset status` to see what the next release would bump.
-
-### How the workflow publishes
-
-It uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm
-exchanges the workflow's OIDC token for a short-lived publish token, so there is no npm
-token in the repository's secrets to leak or rotate, and every release carries a
-[provenance](https://docs.npmjs.com/generating-provenance-statements) attestation that
-links it to the commit and the run that built it. It needs three things, and a publish
-that fails with `ENEEDAUTH`, `401` or `404` is missing one of them:
-
-- **The trusted publisher on npmjs.com.** Under the package's **Settings > Trusted
-  publishing**: GitHub Actions, user `janodetzel`, repository `app-commands`, workflow
-  `publish.yml`, no environment.
-- **The workflow's side.** `id-token: write`, Node 22.14 or later, and npm 11.5.1 or
-  later: pnpm hands the upload to the npm on `PATH`, so the workflow installs one.
-- **`repository.url` in the package's `package.json`,** which must name this
-  repository.
-
-npm trusts a workflow only for a package that already exists, so a new package's first
-version is published by hand, once, from an npm account that owns the scope: build it,
-then run `npm publish --access public` in its folder. Configure its trusted publisher
-right after; every later version goes through the workflow.
 
 ## Further reading
 

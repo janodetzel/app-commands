@@ -12,15 +12,15 @@ export type NewsFeatureDeps = { apollo: ApolloClient; store: DismissedNewsStore 
  * There is no `list` and no `dismissed` command. A read command is a second
  * implementation of what the screen already renders, written for nobody but the
  * agent, and it drifts from the screen the moment the two are edited apart.
- * What the screen shows is read with `state.get` instead: the articles from the
- * Apollo cache, the dismissals from the store, combined by `visibleArticles` -
+ * What the screen shows is read with the adapters' `inspect` instead: the articles
+ * with `apollo.inspect`, the dismissals with `store.inspect`, combined by `visibleArticles` -
  * the same function `useVisibleArticles` binds for the screen.
  */
 export const createNewsFeature = (deps: NewsFeatureDeps) => ({
 	dismissButtonTapped: command()
 		.input({ id: z.string().min(1) })
 		.description(
-			"Does what tapping Dismiss on an article does: hides it for this reader and saves the dismissal. Returns nothing - read state.get to see the result, the way the screen does. Dismissing an already dismissed article is a no-op. The server never hears about it, and an id no article has is dismissed just the same. Fails when the save fails, and the dismissal is rolled back.",
+			"Does what tapping Dismiss on an article does: hides it for this reader and saves the dismissal. Returns nothing - read apollo.inspect --prefix Article: and store.inspect --store dismissedNews to see the result, the way the screen does. Dismissing an already dismissed article is a no-op. The server never hears about it, and an id no article has is dismissed just the same. Fails when the save fails, and the dismissal is rolled back.",
 		)
 		.run(async ({ id }) => {
 			await deps.store.getState().dismiss(id);
