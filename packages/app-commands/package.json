@@ -54,6 +54,7 @@
 		"@types/ws": "^8.18.1",
 		"expo": "~57.0.22",
 		"expo-module-scripts": "^4.1.7",
+		"expo-router": "~57.0.24",
 		"graphql": "^17.0.2",
 		"react": "19.2.3",
 		"react-native": "0.86.3",
@@ -86,6 +87,10 @@
 		"./adapters/apollo": {
 			"types": "./build/adapters/apollo.d.ts",
 			"default": "./build/adapters/apollo.js"
+		},
+		"./adapters/expo-router": {
+			"types": "./build/adapters/expo-router.d.ts",
+			"default": "./build/adapters/expo-router.js"
 		},
 		"./adapters/key-value": {
 			"types": "./build/adapters/key-value.d.ts",

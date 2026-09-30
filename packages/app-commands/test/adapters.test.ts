@@ -1,10 +1,16 @@
 import { ApolloClient, ApolloLink, InMemoryCache, gql } from "@apollo/client";
 import { createNavigationContainerRef } from "@react-navigation/native";
-import { describe, expect, it } from "vitest";
+import type { router as expoRouter, useNavigationContainerRef } from "expo-router";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { createStore } from "zustand/vanilla";
 import { z } from "zod";
 
 import { apolloCommands } from "../src/adapters/apollo";
+import {
+	expoRouterCommands,
+	type ExpoRouterLike,
+	type ExpoRouterNavigationRefLike,
+} from "../src/adapters/expo-router";
 import { keyValueCommands } from "../src/adapters/key-value";
 import { navigationCommands, type NavigationRef } from "../src/adapters/react-navigation";
 import { zustandCommands } from "../src/adapters/zustand";
@@ -101,6 +107,205 @@ describe("navigationCommands", () => {
 			"screens.back",
 			"screens.inspect",
 			"screens.navigate",
+		]);
+	});
+});
+
+/**
+ * A root stack the way Expo Router shapes it: an `__root` slot whose routes are
+ * named after files. Every change replaces the state object, as the container
+ * does, and `navigate` resolves an href only against the routes it was given.
+ */
+function fakeExpoRouter(routes: Record<string, string>) {
+	type Route = { key: string; name: string; params?: Record<string, unknown> };
+	let stack: Route[] = [{ key: "0", name: "index" }];
+	let rootState: unknown;
+	const commit = () => {
+		rootState = {
+			index: 0,
+			routes: [{ name: "__root", state: { index: stack.length - 1, routes: [...stack] } }],
+		};
+	};
+	commit();
+
+	let ready = true;
+	const ref: ExpoRouterNavigationRefLike = {
+		current: {},
+		isReady: () => ready,
+		getRootState: () => rootState,
+	};
+
+	const router: ExpoRouterLike = {
+		navigate(href) {
+			const { pathname, params } = typeof href === "string" ? { pathname: href, params: {} } : href;
+			const name = routes[pathname.split("?")[0]!];
+			const route: Route = name
+				? { key: String(stack.length), name, params: params ?? {} }
+				: {
+						key: String(stack.length),
+						name: "+not-found",
+						params: { "not-found": pathname.slice(1).split("/") },
+					};
+			stack = [...stack, route];
+			commit();
+		},
+		back() {
+			stack = stack.slice(0, -1);
+			commit();
+		},
+		canGoBack: () => stack.length > 1,
+	};
+
+	return {
+		router,
+		ref,
+		unmount: () => {
+			ready = false;
+		},
+	};
+}
+
+describe("expoRouterCommands", () => {
+	const build = (routes: Record<string, string> = {}, focusTimeoutMs?: number) => {
+		const app = fakeExpoRouter(routes);
+		const registry = expoRouterCommands({
+			router: app.router,
+			navigationRef: () => app.ref,
+			focusTimeoutMs,
+		});
+		return { ...app, registry };
+	};
+
+	it("takes Expo Router's own router and container ref", () => {
+		// Typed routes narrow `navigate` to the app's hrefs; the adapter still takes it.
+		expectTypeOf<typeof expoRouter>().toMatchTypeOf<ExpoRouterLike>();
+		expectTypeOf<
+			ReturnType<typeof useNavigationContainerRef>
+		>().toMatchTypeOf<ExpoRouterNavigationRefLike>();
+	});
+
+	it("answers null before the root layout mounts, and refuses to navigate", async () => {
+		const registry = expoRouterCommands({
+			router: fakeExpoRouter({}).router,
+			navigationRef: () => undefined,
+		});
+
+		expect(await call(registry, "nav.inspect")).toMatchObject({ ok: true, result: null });
+		expect(failed(await call(registry, "nav.navigate", { href: "/settings" })).error).toMatch(
+			/root layout has not mounted/,
+		);
+	});
+
+	it("reports the pathname, the file segments and the params", async () => {
+		const { registry } = build({ "/todos/[id]": "todos/[id]" });
+
+		await call(registry, "nav.navigate", {
+			href: "/todos/[id]",
+			params: { id: "7", tab: "notes" },
+		});
+
+		expect(await call(registry, "nav.inspect")).toMatchObject({
+			ok: true,
+			result: {
+				pathname: "/todos/7",
+				segments: ["todos", "[id]"],
+				params: { id: "7", tab: "notes" },
+			},
+		});
+	});
+
+	it("returns the whole tree under state", async () => {
+		const { registry } = build();
+		const res = await call(registry, "nav.inspect", { key: "state" });
+
+		expect(res).toMatchObject({ ok: true, result: { state: { routes: [{ name: "__root" }] } } });
+	});
+
+	it("navigates and returns where it landed, groups dropped from the pathname", async () => {
+		const { registry } = build({ "/(tabs)/settings": "(tabs)/settings" });
+
+		expect(await call(registry, "nav.navigate", { href: "/(tabs)/settings" })).toMatchObject({
+			ok: true,
+			result: { pathname: "/settings", segments: ["(tabs)", "settings"] },
+		});
+	});
+
+	it("uses the pathname Expo Router reports when the container registered its linking", async () => {
+		const { registry, ref } = build({ "/about": "about" });
+		const devtools = new WeakMap([
+			[ref.current!, { linking: { config: {}, getPathFromState: () => "/about-us?ref=home" } }],
+		]);
+		(globalThis as { REACT_NAVIGATION_DEVTOOLS?: unknown }).REACT_NAVIGATION_DEVTOOLS = devtools;
+
+		try {
+			expect(await call(registry, "nav.inspect")).toMatchObject({
+				result: { pathname: "/about-us" },
+			});
+		} finally {
+			delete (globalThis as { REACT_NAVIGATION_DEVTOOLS?: unknown }).REACT_NAVIGATION_DEVTOOLS;
+		}
+	});
+
+	it("fails when no route matches, which Expo Router shows as +not-found", async () => {
+		const { registry } = build();
+		const res = failed(await call(registry, "nav.navigate", { href: "/nowhere" }));
+
+		expect(res.code).toBe("COMMAND_FAILED");
+		expect(res.error).toMatch(/no route matches \/nowhere; the app is showing \+not-found/);
+	});
+
+	it("fails and says where the app is when a redirect sends it elsewhere", async () => {
+		// A protected route or a <Redirect> in a layout lands the app on another screen.
+		const { registry } = build({ "/account": "sign-in" }, 100);
+		const res = failed(await call(registry, "nav.navigate", { href: "/account" }));
+
+		expect(res.error).toMatch(
+			/expected to be on \/account within 100 ms, but the app is on \/sign-in/,
+		);
+	});
+
+	it("rejects a relative href before it reaches the app", async () => {
+		const { registry } = build();
+
+		expect(failed(await call(registry, "nav.navigate", { href: "settings" })).code).toBe(
+			"INVALID_ARGS",
+		);
+	});
+
+	it("goes back and returns where it landed, and fails when there is no history", async () => {
+		const { registry } = build({ "/settings": "settings" });
+
+		expect(failed(await call(registry, "nav.back")).error).toMatch(/cannot go back/);
+
+		await call(registry, "nav.navigate", { href: "/settings" });
+		expect(await call(registry, "nav.back")).toMatchObject({ ok: true, result: { pathname: "/" } });
+	});
+
+	it("reads the ref on every call, because Expo Router creates it when the root layout mounts", async () => {
+		const { registry, unmount } = build();
+
+		expect(await call(registry, "nav.inspect")).toMatchObject({ result: { pathname: "/" } });
+		unmount();
+		expect(await call(registry, "nav.inspect")).toMatchObject({ ok: true, result: null });
+	});
+
+	it("takes a namespace, and uses nav by default like the React Navigation adapter", () => {
+		const app = fakeExpoRouter({});
+		const registry = expoRouterCommands({
+			router: app.router,
+			navigationRef: () => app.ref,
+			namespace: "router",
+		});
+
+		expect(Object.keys(registry).sort()).toEqual([
+			"router.back",
+			"router.inspect",
+			"router.navigate",
+		]);
+		expect(Object.keys(build().registry).sort()).toEqual([
+			"nav.back",
+			"nav.inspect",
+			"nav.navigate",
 		]);
 	});
 });

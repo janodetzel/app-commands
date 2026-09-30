@@ -34,6 +34,9 @@ const ADAPTER_LIBRARIES = {
 	// Named after a shape rather than a library, and copies the two methods it
 	// needs instead of importing them. An empty allowlist is what says so.
 	"key-value": [],
+	// Takes `router` and the container ref as arguments and types the parts it
+	// calls, so an app on any Expo Router version pulls in nothing through it.
+	"expo-router": [],
 };
 
 /** One rule per adapter: its own library, plus zod, and nothing else. */
