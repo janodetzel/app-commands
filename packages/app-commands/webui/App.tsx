@@ -11,6 +11,7 @@ import { useDevToolsPluginClient } from "expo/devtools";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { JsonTree } from "./JsonTree";
 import { buildArgs, fieldsOf, type Field } from "./schema";
 
 export default function App() {
@@ -147,9 +148,7 @@ export default function App() {
 										? `ok · ${response.durationMs ?? "?"} ms`
 										: `${response.code} · ${response.error}`}
 								</Text>
-								<Text style={styles.json} selectable>
-									{JSON.stringify(response.ok ? response.result : (response.issues ?? []), null, 2)}
-								</Text>
+								<JsonTree key={response.id} value={response.ok ? response.result : (response.issues ?? [])} />
 							</View>
 						)}
 					</>
@@ -294,13 +293,4 @@ const styles = StyleSheet.create({
 	response: { marginTop: 16, gap: 8 },
 	ok: { color: "#3fb950", fontSize: 12, fontFamily: mono },
 	failed: { color: "#ff7b72", fontSize: 12, fontFamily: mono },
-	json: {
-		backgroundColor: "#161b22",
-		borderRadius: 6,
-		padding: 12,
-		color: "#c9d1d9",
-		fontFamily: mono,
-		fontSize: 12,
-		lineHeight: 18,
-	},
 });
