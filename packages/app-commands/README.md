@@ -17,15 +17,15 @@ library, and no validation library — see principle 10 in
 why this package is shaped the way it is. The lint and dependency-cruiser rules that keep an app's
 features reachable ship here too, behind `/eslint` and `/depcruise`.
 
-| Entry point                            | What it is                                                                                                                               |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants          |
-| `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                        |
-| `@janodetzel/app-commands/conformance` | `checkRegistry`, the suite an app runs against its own registry                                                                          |
-| `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                       |
-| `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `react-navigation`, `zustand`. One library each, so an optional peer you did not install is one you never import |
-| `@janodetzel/app-commands/eslint`      | The five architecture rules, as a flat-config ESLint plugin                                                                              |
-| `@janodetzel/app-commands/depcruise`   | `rules()`, the sibling-feature boundary for dependency-cruiser                                                                           |
+| Entry point                            | What it is                                                                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                      |
+| `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                    |
+| `@janodetzel/app-commands/conformance` | `checkRegistry`, the suite an app runs against its own registry                                                                                                      |
+| `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                   |
+| `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `zustand`. One library each, so an optional peer you did not install is one you never import |
+| `@janodetzel/app-commands/eslint`      | The five architecture rules, as a flat-config ESLint plugin                                                                                                          |
+| `@janodetzel/app-commands/depcruise`   | `rules()`, the sibling-feature boundary for dependency-cruiser                                                                                                       |
 
 The binaries are `app-commands` and `app-commands-mcp`. From the repo root, run the CLI
 as `pnpm app-commands`.
@@ -278,6 +278,7 @@ import { zustandCommands } from "@janodetzel/app-commands/adapters/zustand";
 buildRegistry(
 	featureCommands({ todos, settings }), //                     todos.add, settings.setUnits, …
 	navigationCommands(navigationRef, { routes: RouteName }), // nav.navigate, nav.back, nav.inspect
+	// or, in an Expo Router app: expoRouterCommands({ router, navigationRef: useNavigationContainerRef })
 	apolloCommands(apolloClient), //                             apollo.refetch, apollo.inspect
 	zustandCommands({ settings: settingsStore }), //             store.inspect
 	keyValueCommands(AsyncStorage), //                           storage.inspect
@@ -290,6 +291,43 @@ Each takes a `namespace` option for an app that already uses the default name.
 React Navigation logs a warning for an unknown route rather than throwing. Types do
 not exist at runtime, so pass the route names as a `z.enum` and keep it honest with
 a type test against the navigator's param list.
+
+### Expo Router
+
+An Expo Router app has no `navigationRef` of its own to hand over: Expo Router
+creates the container when the root layout mounts, and ships its own copy of React
+Navigation, so the `react-navigation` adapter does not fit it. Use `expo-router`
+instead. It gives the same three commands under the same `nav` namespace.
+
+```ts
+import { router, useNavigationContainerRef } from "expo-router";
+import { expoRouterCommands } from "@janodetzel/app-commands/adapters/expo-router";
+
+export const commandRegistry = buildRegistry(
+	featureCommands({ todos: todosFeature }),
+	// Pass the function uncalled; the adapter asks for the ref on every command.
+	expoRouterCommands({ router, navigationRef: useNavigationContainerRef }),
+);
+```
+
+`useNavigationContainerRef` reads Expo Router's module store and calls no React
+hook, which is why it works outside a component. Before the root layout mounts it
+returns a ref that is not ready, and every command answers accordingly.
+
+- `nav.navigate --href /todos/[id] --params '{"id":"7"}'` goes through `router.navigate`,
+  the same call a `<Link>` makes. It waits until the app is on that pathname and
+  fails when it lands on `+not-found` or somewhere else, which is what a redirect
+  or a protected route does. The href is a path rather than an enum, because the
+  routes are files; typed routes exist only in the types.
+- `nav.back` goes through `router.back` and fails when there is nothing to go back to.
+- `nav.inspect` returns `{ pathname, segments, params }`, the values `usePathname`,
+  `useSegments` and `useGlobalSearchParams` give a component. `--key state` returns
+  the navigation tree. The pathname comes from the linking config the container
+  registers for the React Navigation dev tools, so it is the one Expo Router
+  computes, rewrites included.
+
+The adapter imports nothing from `expo-router`; it types the parts of `router` and
+the ref it calls, and a type test holds the real ones to them.
 
 `inspect` is the one read command, across every place an app keeps state. A source
 is a description, the keys it holds, and a way to read one, so a store, a cache and

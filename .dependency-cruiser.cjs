@@ -34,6 +34,9 @@ const ADAPTER_LIBRARIES = {
 	// Named after a shape rather than a library, and copies the two methods it
 	// needs instead of importing them. An empty allowlist is what says so.
 	"key-value": [],
+	// Takes `router` and the container ref as arguments and types the parts it
+	// calls, so an app on any Expo Router version pulls in nothing through it.
+	"expo-router": [],
 };
 
 /** One rule per adapter: its own library, plus zod, and nothing else. */
@@ -101,7 +104,9 @@ module.exports = {
 		doNotFollow: { path: "node_modules" },
 		// node_modules stays in the graph on purpose: the layer rules are about which
 		// libraries a layer may import. `doNotFollow` keeps the graph from exploding.
-		exclude: { path: "(/build/|/dist/|/webui/)" },
+		// Anchored to the workspace's own output: unanchored, "/build/" also hid every
+		// package whose entry lives in node_modules/<pkg>/build/, which is most of Expo.
+		exclude: { path: "^(packages|apps)/[^/]+/(build|dist|webui)/" },
 		tsPreCompilationDeps: true,
 		tsConfig: { fileName: "tsconfig.base.json" },
 		enhancedResolveOptions: {
