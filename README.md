@@ -180,28 +180,6 @@ does both.
 
 Run `pnpm changeset status` to see what the next release would bump.
 
-### How the workflow publishes
-
-It uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm
-exchanges the workflow's OIDC token for a short-lived publish token, so there is no npm
-token in the repository's secrets to leak or rotate, and every release carries a
-[provenance](https://docs.npmjs.com/generating-provenance-statements) attestation that
-links it to the commit and the run that built it. It needs three things, and a publish
-that fails with `ENEEDAUTH`, `401` or `404` is missing one of them:
-
-- **The trusted publisher on npmjs.com.** Under the package's **Settings > Trusted
-  publishing**: GitHub Actions, user `janodetzel`, repository `app-commands`, workflow
-  `publish.yml`, no environment.
-- **The workflow's side.** `id-token: write`, Node 22.14 or later, and npm 11.5.1 or
-  later: pnpm hands the upload to the npm on `PATH`, so the workflow installs one.
-- **`repository.url` in the package's `package.json`,** which must name this
-  repository.
-
-npm trusts a workflow only for a package that already exists, so a new package's first
-version is published by hand, once, from an npm account that owns the scope: build it,
-then run `npm publish --access public` in its folder. Configure its trusted publisher
-right after; every later version goes through the workflow.
-
 ## Further reading
 
 - [`docs/principles.md`](docs/principles.md) explains each principle and what it does not claim.
