@@ -142,10 +142,11 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm depcruise
 
 ## Releasing
 
-`@janodetzel/app-commands` is published to GitHub Packages.
-`@janodetzel/feature-kit` was published from here until it merged into app-commands; its last
-version stays installable. Never edit a `version` field or push a tag
-by hand; [Changesets](https://github.com/changesets/changesets) does both.
+`@janodetzel/app-commands` is published to npmjs.org. Earlier releases went to GitHub
+Packages, and `@janodetzel/feature-kit` was published there until it merged into
+app-commands; those versions stay installable from GitHub Packages. Never edit a
+`version` field or push a tag by hand; [Changesets](https://github.com/changesets/changesets)
+does both.
 
 1. In a pull request that changes a published package, run `pnpm changeset`. Pick the
    packages and the bump (patch, minor, major) and write one line for the changelog.
@@ -156,10 +157,32 @@ by hand; [Changesets](https://github.com/changesets/changesets) does both.
    writes each package's `CHANGELOG.md`, and it collects every changeset merged
    since the last release.
 3. Merge "Version Packages" when you want to release. The workflow publishes every
-   package whose new version is not in the registry yet, then pushes a tag such as
+   package whose new version is not on npmjs.org yet, then pushes a tag such as
    `@janodetzel/app-commands@0.2.0` and creates a GitHub release for it.
 
 Run `pnpm changeset status` to see what the next release would bump.
+
+### How the workflow publishes
+
+It uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm
+exchanges the workflow's OIDC token for a short-lived publish token, so there is no npm
+token in the repository's secrets to leak or rotate, and every release carries a
+[provenance](https://docs.npmjs.com/generating-provenance-statements) attestation that
+links it to the commit and the run that built it. It needs three things, and a publish
+that fails with `ENEEDAUTH`, `401` or `404` is missing one of them:
+
+- **The trusted publisher on npmjs.com.** Under the package's **Settings > Trusted
+  publishing**: GitHub Actions, user `janodetzel`, repository `app-commands`, workflow
+  `publish.yml`, no environment.
+- **The workflow's side.** `id-token: write`, Node 22.14 or later, and npm 11.5.1 or
+  later: pnpm hands the upload to the npm on `PATH`, so the workflow installs one.
+- **`repository.url` in the package's `package.json`,** which must name this
+  repository.
+
+npm trusts a workflow only for a package that already exists, so a new package's first
+version is published by hand, once, from an npm account that owns the scope: build it,
+then run `npm publish --access public` in its folder. Configure its trusted publisher
+right after; every later version goes through the workflow.
 
 ## Further reading
 

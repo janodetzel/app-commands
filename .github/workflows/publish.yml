@@ -4,7 +4,13 @@ name: Publish packages
 # - pending changesets: open or update the "Version Packages" pull request, which
 #   bumps versions and writes changelogs;
 # - no pending changesets (that pull request was just merged): publish every
-#   package whose version is not in the registry yet, then tag and release it.
+#   package whose version is not on npmjs.org yet, then tag and release it.
+#
+# Publishing uses npm trusted publishing: npm exchanges the workflow's OIDC token
+# for a short-lived publish token, so no npm token is stored anywhere, and it
+# attaches a provenance attestation to every release. The package's settings on
+# npmjs.com must name this repository and this workflow file as its trusted
+# publisher; see "Releasing" in README.md.
 on:
   push:
     branches: [main]
@@ -17,7 +23,8 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  packages: write
+  # Lets the job mint the OIDC token npm trusted publishing exchanges.
+  id-token: write
 
 jobs:
   publish:
@@ -28,14 +35,16 @@ jobs:
       # Reads the version from `packageManager` in the root package.json.
       - uses: pnpm/action-setup@v4
 
-      # Writes an .npmrc that points @janodetzel at GitHub Packages and reads
-      # NODE_AUTH_TOKEN.
+      # Trusted publishing needs Node 22.14 or later.
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: pnpm
-          registry-url: https://npm.pkg.github.com
-          scope: "@janodetzel"
+          registry-url: https://registry.npmjs.org
+
+      # ...and npm 11.5.1 or later: pnpm hands the upload to the npm on PATH, and
+      # the npm that ships with Node may be older.
+      - run: npm install -g npm@^11.5.1
 
       - run: pnpm install --frozen-lockfile
 
@@ -48,5 +57,6 @@ jobs:
           title: Version Packages
           commit: Version Packages
         env:
+          # For the Version Packages pull request, the tag and the GitHub release.
+          # Publishing authenticates through OIDC and needs no token.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -30,44 +30,23 @@ features reachable ship here too, behind `/eslint` and `/depcruise`.
 The binaries are `app-commands` and `app-commands-mcp`. From the repo root, run the CLI
 as `pnpm app-commands`.
 
-## Installing from GitHub Packages
+## Installing
 
-The package is published to GitHub Packages, not npmjs.org. Point the scope at it in
-the consuming project's `.npmrc`:
+The package is published to npmjs.org:
 
 ```
-@janodetzel:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+npm install @janodetzel/app-commands
 ```
 
-GitHub Packages asks for a token even for a public package: `GITHUB_TOKEN` must be a
-token with the `read:packages` scope (`gh auth refresh -s read:packages`, then
-`export GITHUB_TOKEN=$(gh auth token)`).
+It installs like any other public package: no `.npmrc` entry and no token, locally, in
+CI, or on a build service such as EAS Build.
 
-Every machine that installs the app's dependencies needs that token, and CI does not
-have it by default. In GitHub Actions, `.npmrc` sees no `GITHUB_TOKEN` unless a step
-sets it, so pass the workflow's token to the install:
-
-```yaml
-permissions:
-  contents: read
-  packages: read # a job that narrows its permissions needs it too
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: npm ci
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-```
-
-The package must also grant the app's repository access under **Package settings >
-Manage Actions access**. A build service that installs on its own machines, such as
-EAS Build, needs its own `GITHUB_TOKEN` as a secret environment variable. Use a
-classic token with only `read:packages`: GitHub Packages' npm registry does not
-accept fine-grained tokens. Without it, the install fails with `401 Unauthorized`.
+Earlier releases went to GitHub Packages, whose npm registry asks for a token even for
+a public package. An app installed from there points the `@janodetzel` scope at
+`npm.pkg.github.com` in its `.npmrc`. Remove those lines to install from npmjs.org, and
+with them anything that only existed to feed that registry a token: a `GITHUB_TOKEN`
+passed to `npm ci`, `packages: read` grants, and a `GITHUB_TOKEN` secret on the build
+service.
 
 ## Installing it in the workspace
 

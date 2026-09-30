@@ -51,7 +51,7 @@ export { default } from "@/screens/editor/editor-screen";
 
 ## Build it in this order
 
-1. **Install the package.** Follow "Installing from GitHub Packages" in the package README. Set up the token for CI and for your build service now. An install that fails on the first CI run is the most common reason a new app has no CI.
+1. **Install the package.** `npm install @janodetzel/app-commands`. It is on npmjs.org, so CI and a build service install it with no token or `.npmrc` entry.
 2. **Create the composition root.** `src/instances/index.ts` creates every store, adapter, and feature, and passes each feature its dependencies. Screens and the registry import from it. Nothing else creates an instance.
 3. **Build the registry.** `src/commands.ts` combines three slices at module scope:
 

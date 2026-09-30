@@ -13,7 +13,7 @@
 		"url": "https://github.com/janodetzel/app-commands/issues"
 	},
 	"publishConfig": {
-		"registry": "https://npm.pkg.github.com",
+		"registry": "https://registry.npmjs.org",
 		"access": "public"
 	},
 	"main": "build/index.js",
@@ -128,7 +128,7 @@
 		}
 	},
 	"bin": {
-		"app-commands": "./build/cli/index.js",
-		"app-commands-mcp": "./build/mcp/index.js"
+		"app-commands": "build/cli/index.js",
+		"app-commands-mcp": "build/mcp/index.js"
 	}
 }
