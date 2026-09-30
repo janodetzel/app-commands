@@ -1,5 +1,20 @@
 # @janodetzel/app-commands
 
+## 0.5.0
+
+### Minor Changes
+
+- f4402af: Three new checks from moving an Expo Router app onto app-commands:
+
+  - `no-ui-in-logic` now counts `react-native-*` packages as UI imports by default. A feature importing `react-native-share` or `react-native-mmkv` passed lint and still could not load outside React Native.
+  - New rule `app-commands/no-store-action-in-ui`, on in the recommended config. It reports a UI file that calls a store action (`store.getState().add()`), destructures `getState()`, or takes a whole store with `useStore(store)`, all of which change state without going through the command. It applies under `src/screens/`, `src/components/`, `src/hooks/`, and `src/navigation/`, and leaves `src/app/` alone, where the app starts; pass `uiDirs` for another layout. An app with such a call gets a new lint error.
+  - New `checkUiCallers` in `/conformance`. It takes the UI's source text and names every feature command no screen calls, the half of principle 1 a tool can check.
+
+### Patch Changes
+
+- 26cb7bd: Document how to set up an app around the package. A new `setting-up-an-app` skill covers the folder layout, the composition root and registry, ports and adapters, keeping features headless, the guardrail config, the headless test setup, and the pitfalls found moving an Expo Router app onto app-commands. The README now covers the `+not-found` screen an Expo Router app needs to keep the command bridge up, and how to install the skills. `building-a-feature` names commands after the control that triggers them and treats `api.ts` as a port for any platform call.
+- 94086e9: Publish to npmjs.org. Install with `npm install @janodetzel/app-commands`: no `.npmrc` scope entry and no token, locally, in CI, or on a build service. Releases are published through npm trusted publishing and carry a provenance attestation. Earlier releases stay on GitHub Packages; an app moving over drops the `@janodetzel` registry lines from its `.npmrc` and any token it passed to installs for them.
+
 ## 0.4.1
 
 ### Patch Changes
