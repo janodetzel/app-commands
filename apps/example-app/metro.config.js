@@ -15,5 +15,14 @@ config.resolver.nodeModulesPaths = [
 ];
 config.resolver.disableHierarchicalLookup = true;
 
+// Agent tests are never bundled, and a run writes screenshots and recordings into
+// agent-tests/runs/. Watched, each new image would flash the dev client's
+// "Refreshing…" banner in the middle of a test.
+const agentTests = path.join(projectRoot, "agent-tests");
+config.resolver.blockList = [
+	...[].concat(config.resolver.blockList ?? []),
+	new RegExp(`^${agentTests.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\\\/]`),
+];
+
 // The bridge needs no Metro config of its own.
 module.exports = config;
