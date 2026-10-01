@@ -144,11 +144,14 @@ them with the GitHub CLI:
 gh skill install janodetzel/app-commands setting-up-an-app --agent claude-code
 ```
 
-| Skill                | Use it when                                                       |
-| -------------------- | ----------------------------------------------------------------- |
-| `setting-up-an-app`  | Starting an app on app-commands, or deciding where a file belongs |
-| `building-a-feature` | Adding a screen, a store, a mutation, or an entry point           |
-| `driving-the-app`    | Verifying behavior at runtime with the CLI                        |
+| Skill                 | Use it when                                                       |
+| --------------------- | ----------------------------------------------------------------- |
+| `setting-up-an-app`   | Starting an app on app-commands, or deciding where a file belongs |
+| `building-a-feature`  | Adding a screen, a store, a mutation, or an entry point           |
+| `driving-the-app`     | Verifying behavior at runtime with the CLI                        |
+| `writing-agent-tests` | Writing a plain-English test an agent runs on a device            |
+| `running-agent-tests` | Running agent tests from a fresh install and reporting the result |
+| `exploring-the-app`   | Hunting for bugs no test covers, and reporting them               |
 
 ## Entry points
 

@@ -26,12 +26,15 @@ is the only file that creates instances and wires features to each other.
 reachable as Claude Code skills through `.claude/skills`. All but the last one ship
 to apps that use the package:
 
-| Skill                      | Use it when                                                      |
-| -------------------------- | ---------------------------------------------------------------- |
-| `setting-up-an-app`        | Starting an app on the package, or deciding where a file belongs |
-| `building-a-feature`       | Adding a screen, a store, a mutation, or an entry point          |
-| `driving-the-app`          | Verifying behavior at runtime with `pnpm app-commands`           |
-| `maintaining-app-commands` | Changing the plugin: protocol, CLI, adapters, wire format        |
+| Skill                      | Use it when                                                       |
+| -------------------------- | ----------------------------------------------------------------- |
+| `setting-up-an-app`        | Starting an app on the package, or deciding where a file belongs  |
+| `building-a-feature`       | Adding a screen, a store, a mutation, or an entry point           |
+| `driving-the-app`          | Verifying behavior at runtime with `pnpm app-commands`            |
+| `writing-agent-tests`      | Writing a plain-English test an agent runs on a device            |
+| `running-agent-tests`      | Running agent tests from a fresh install and reporting the result |
+| `exploring-the-app`        | Hunting for bugs no test covers, and reporting them               |
+| `maintaining-app-commands` | Changing the plugin: protocol, CLI, adapters, wire format         |
 
 ## Checks
 
