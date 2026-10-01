@@ -49,3 +49,5 @@ If the project registers the `app-commands` MCP server and its tools are in your
 Use commands to set up state and read it back. A screenshot or a UI tree cannot tell a cached value from a saved one. When the question is whether a screen renders correctly or a button is wired up, use the `ios-simulator` or `android-emulator` skill. A common pattern is to set up state with commands, navigate with a navigation command if the app has one, then take a snapshot with `agent-device`.
 
 Never run commands against a dev build that points at production data.
+
+To check a flow end to end and repeatably — a written test an agent runs on a device from a fresh install — see `writing-agent-tests` and `running-agent-tests`. To look for bugs no test covers, see `exploring-the-app`.

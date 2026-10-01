@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# agent test runs: screenshots, recordings and result.md per run
+agent-tests/runs/
