@@ -1,6 +1,6 @@
 ---
 name: setting-up-an-app
-description: Set up the architecture of a React Native or Expo app around @janodetzel/app-commands, or move an existing app onto it. Covers the folder layout, the composition root, the command registry, ports and adapters, the headless test setup, the guardrail config, and CI. Use when starting a project with app-commands, adopting it in an existing app, restructuring folders around it, or deciding where a file belongs.
+description: Set up the architecture of a React Native, Expo or Vite web app around @janodetzel/app-commands, or move an existing app onto it. Covers the folder layout, the composition root, the command registry, ports and adapters, the headless test setup, the guardrail config, and CI. Use when starting a project with app-commands, adopting it in an existing app, restructuring folders around it, or deciding where a file belongs.
 ---
 
 # Setting up an app
@@ -69,6 +69,8 @@ export { default } from "@/screens/editor/editor-screen";
 5. **Turn on the guardrails.** See [Guardrails](#guardrails).
 6. **Set up the headless tests.** See [Test without a device](#test-without-a-device).
 7. **Add the first feature** with the `building-a-feature` skill.
+
+**A web app on Vite** differs in two places. Instead of `useAppCommands`, add `appCommands()` from `@janodetzel/app-commands/vite` to `vite.config.ts` and call `attachWebCommands(import.meta.hot, commandRegistry)` from `@janodetzel/app-commands/web` in the client entry, inside `if (import.meta.hot) { … }` with both imports dynamic, so a release build drops the transport and the registry. And `tanstackRouterCommands` replaces the Expo Router adapter. See the README's "Web apps (Vite)" and `apps/web-example`.
 
 ## Keep features headless
 

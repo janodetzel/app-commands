@@ -10,11 +10,12 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createServer, type McpServerOptions } from "./server";
 
 const USAGE = `Usage:
-  app-commands-mcp [--host <host>] [--port <port>] [--timeout <ms>]
+  app-commands-mcp [--host <host>] [--port <port>] [--url <url>] [--timeout <ms>]
 
-Speaks MCP over stdio and exposes the commands of the app running on Metro. The
-same settings can come from APP_COMMANDS_HOST, APP_COMMANDS_PORT and
-APP_COMMANDS_TIMEOUT.`;
+Speaks MCP over stdio and exposes the commands of the app running on Metro, or of
+a web app when --url names its Vite dev server, such as http://localhost:5173. The
+same settings can come from APP_COMMANDS_HOST, APP_COMMANDS_PORT, APP_COMMANDS_URL
+and APP_COMMANDS_TIMEOUT.`;
 
 function parseOptions(argv: string[]): McpServerOptions {
 	if (argv.includes("--help") || argv.includes("-h")) {
@@ -27,6 +28,9 @@ function parseOptions(argv: string[]): McpServerOptions {
 	const port = numeric(process.env.APP_COMMANDS_PORT, "APP_COMMANDS_PORT");
 	const timeout = numeric(process.env.APP_COMMANDS_TIMEOUT, "APP_COMMANDS_TIMEOUT");
 
+	const url = process.env.APP_COMMANDS_URL;
+
+	if (url !== undefined && url !== "") options.url = url;
 	if (host !== undefined) options.host = host;
 	if (port !== undefined) options.port = port;
 	if (timeout !== undefined) options.defaultTimeoutMs = timeout;
@@ -39,6 +43,9 @@ function parseOptions(argv: string[]): McpServerOptions {
 				break;
 			case "--port":
 				options.port = numeric(required(argv[++i], token), token);
+				break;
+			case "--url":
+				options.url = required(argv[++i], token);
 				break;
 			case "--timeout":
 				options.defaultTimeoutMs = numeric(required(argv[++i], token), token);

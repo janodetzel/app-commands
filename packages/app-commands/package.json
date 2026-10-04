@@ -20,12 +20,13 @@
 	"types": "build/index.d.ts",
 	"sideEffects": false,
 	"scripts": {
-		"build": "EXPO_NONINTERACTIVE=1 expo-module build && EXPO_NONINTERACTIVE=1 expo-module build cli && pnpm run build:mcp && pnpm run build:bin",
-		"build:all": "expo-module prepare && pnpm run build:mcp && pnpm run build:bin && pnpm run web:export",
+		"build": "EXPO_NONINTERACTIVE=1 expo-module build && EXPO_NONINTERACTIVE=1 expo-module build cli && pnpm run build:mcp && pnpm run build:vite && pnpm run build:bin",
+		"build:all": "expo-module prepare && pnpm run build:mcp && pnpm run build:vite && pnpm run build:bin && pnpm run web:export",
 		"build:mcp": "tsc -p mcp/tsconfig.json",
+		"build:vite": "tsc -p vite/tsconfig.json",
 		"clean": "expo-module clean",
-		"prepare": "expo-module prepare && pnpm run build:mcp",
-		"prepublishOnly": "expo-module prepare && expo-module prepublishOnly && pnpm run build:mcp && pnpm run web:export",
+		"prepare": "expo-module prepare && pnpm run build:mcp && pnpm run build:vite",
+		"prepublishOnly": "expo-module prepare && expo-module prepublishOnly && pnpm run build:mcp && pnpm run build:vite && pnpm run web:export",
 		"web:dev": "cd webui && npx expo start -w",
 		"web:export": "./scripts/build-webui.js",
 		"typecheck": "tsc --noEmit",
@@ -71,6 +72,7 @@
 		"react-native": "0.86.3",
 		"tinybase": "^6.4.2",
 		"typescript": "~5.9.3",
+		"vite": "^8.3.2",
 		"zod": "^4.6.2",
 		"zustand": "^5.0.15"
 	},
@@ -79,6 +81,7 @@
 		"@tanstack/react-router": ">=1.170.0",
 		"react": "*",
 		"tinybase": ">=6.0.0",
+		"vite": ">=5.4.0",
 		"zod": "^4.2.0"
 	},
 	"exports": {
@@ -89,6 +92,14 @@
 		"./expo": {
 			"types": "./build/expo/index.d.ts",
 			"default": "./build/expo/index.js"
+		},
+		"./web": {
+			"types": "./build/web/index.d.ts",
+			"default": "./build/web/index.js"
+		},
+		"./vite": {
+			"types": "./build/vite/index.d.ts",
+			"default": "./build/vite/index.js"
 		},
 		"./protocol": {
 			"types": "./build/core/protocol.d.ts",
@@ -145,7 +156,13 @@
 		"@tanstack/react-router": {
 			"optional": true
 		},
+		"expo": {
+			"optional": true
+		},
 		"tinybase": {
+			"optional": true
+		},
+		"vite": {
 			"optional": true
 		},
 		"zustand": {

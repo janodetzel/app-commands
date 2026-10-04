@@ -9,7 +9,9 @@ A pnpm workspace holding one package and a todo-list example app that uses it:
   things per command and nothing about how the app is built. The Expo dev tools
   transport sits behind the `/expo` subpath. It used to share the workspace with
   `@janodetzel/feature-kit`, which merged into it.
-- `apps/example-app` - the example, built on it.
+- `apps/example-app` - the Expo example, built on it.
+- `apps/web-example` - the same on the web: a Vite and React app driven through the
+  dev server plugin (`/vite`) and `attachWebCommands` (`/web`).
 
 `docs/principles.md` is the source of truth: eleven principles, each with a
 mechanical check. Read it before changing a layer boundary or the protocol, and do
@@ -47,7 +49,8 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm depcruise
 `pnpm --filter @janodetzel/app-commands build:all` builds the plugin and exports the
 web UI.
 `pnpm --filter example-app check:release-bundle` exports a production bundle and fails
-if the bridge appears in it.
+if the bridge appears in it. `pnpm --filter web-example check:release-bundle` does the
+same for the web transport and the registry.
 
 A change to a published package needs a changeset: run `pnpm changeset` and commit
 the file. Never edit a package `version` or push a release tag by hand; see

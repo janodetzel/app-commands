@@ -32,8 +32,8 @@ const RUN_TOOL = "run";
 const RESERVED = new Set([LIST_TOOL, RUN_TOOL]);
 
 const UNREACHABLE_HINT =
-	"Start Metro and the app in a simulator, then try again. Only one CLI, web console, " +
-	"or MCP server can be attached at a time.";
+	"Start Metro and the app in a simulator, or the Vite dev server with the page open, then try " +
+	"again. On Metro only one CLI, web console, or MCP server can be attached at a time.";
 
 const META_TOOLS: ToolDefinition[] = [
 	{

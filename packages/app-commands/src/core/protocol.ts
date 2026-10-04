@@ -16,6 +16,20 @@ export const PLUGIN_NAME = "commands";
 /** Bumped whenever the shape of a request or a response changes. */
 export const PROTOCOL_VERSION = 1;
 
+/**
+ * Where the web transport's dev server plugin listens for the CLI and the MCP
+ * server: a POST whose body is a {@link Request} and whose answer is the
+ * {@link Response}. Wire values, like PLUGIN_NAME, kept apart from the package name.
+ */
+export const WEB_ENDPOINT = "/__app-commands";
+
+/**
+ * The custom events a page and the dev server exchange over Vite's HMR channel:
+ * the plugin sends a request to the page and the page answers on the second.
+ */
+export const WEB_REQUEST_EVENT = "app-commands:request";
+export const WEB_RESPONSE_EVENT = "app-commands:response";
+
 /** Message method the CLI and the web UI send on. */
 export const REQUEST_MESSAGE = "request";
 

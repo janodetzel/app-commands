@@ -90,6 +90,14 @@ module.exports = {
 				path: ["(^|/)node_modules/", "^packages/app-commands/src/(expo|adapters|conformance)"],
 			},
 		},
+		{
+			name: "web-transport-imports-no-library",
+			comment:
+				"packages/app-commands/src/web runs in the browser and src/vite in the dev server, and both are transport code that an app must be able to leave out of a release build. They take the page's hot channel and the dev server as arguments and type the parts they call, so no library sits behind them.",
+			severity: "error",
+			from: { path: "^packages/app-commands/(src/web|vite)" },
+			to: { path: "(^|/)node_modules/" },
+		},
 		...adapterRules,
 		{
 			name: "no-unresolvable",
