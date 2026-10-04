@@ -1,5 +1,17 @@
 # @janodetzel/app-commands
 
+## 0.6.0
+
+### Minor Changes
+
+- 93e7e0a: Add a TanStack Router adapter at `@janodetzel/app-commands/adapters/tanstack-router`. `tanstackRouterCommands({ router })` gives `nav.inspect`, `nav.navigate` and `nav.back` under the same `nav` namespace as the other navigation adapters. `router` is the router or a function that returns it, for TanStack Start, which builds it in a factory. `nav.navigate` takes a route path with params, search and hash, fails before navigating when the route does not exist or a path param is missing, and fails afterwards when a loader throws `notFound` or an error or a redirect lands elsewhere. `@tanstack/react-router` is an optional peer dependency.
+- 1610d47: Add a TinyBase adapter at `@janodetzel/app-commands/adapters/tinybase`. `tinybaseCommands({ name: store })` gives `tinybase.inspect`, a read-only command for the tables, rows and values of a `Store` or `MergeableStore`: with only a store it returns an outline, with a table it returns rows (capped by `limit`, one by `row`, filtered by `prefix`), and `part: "values"` reads the values. A table, row, value or prefix that is not there fails and names what the store has. `tinybase` 6 or later is an optional peer dependency.
+- 1dea79b: Add a web transport, so a React web app on Vite (including TanStack Start) can be driven by the CLI and the MCP server like an Expo app. A dev-only plugin, `appCommands()` from `@janodetzel/app-commands/vite`, adds `POST /__app-commands` to the dev server and relays each request to the page over Vite's HMR channel. In the browser, `attachWebCommands(import.meta.hot, registry)` from `@janodetzel/app-commands/web` answers with the same handler the Expo transport uses; called inside `if (import.meta.hot)` with dynamic imports, it and the registry are dropped from `vite build`. The CLI and the MCP server take `--url <dev server>` (or `APP_COMMANDS_URL` for the MCP server) to use it, and any number of clients can connect at once. The endpoint refuses requests a browser sent, so a web page cannot drive the app. `expo` is now an optional peer dependency, and `vite` 5.4 or later an optional peer of the plugin. A new `apps/web-example` shows the setup, with a `check:release-bundle` script that fails when the transport reaches a release build.
+
+### Patch Changes
+
+- a34b7fa: Ship three skills for agent-driven testing: `writing-agent-tests` (the test format and template), `running-agent-tests` (the device, the tools, commands first, and the result format) and `exploring-the-app` (bug hunts and the findings report). `driving-the-app` points to them.
+
 ## 0.5.1
 
 ### Patch Changes
