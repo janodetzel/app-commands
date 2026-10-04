@@ -39,9 +39,10 @@ the screen and the command are one function, what it verifies is what a user get
 npm install @janodetzel/app-commands
 ```
 
-`expo` and `react` are peer dependencies. Everything else is optional: `zod` 4.2 or
-later for the adapters and for commands written with it, and the library behind each
-adapter you import. `command()` works with any Standard Schema library the app already
+`react` is a peer dependency. `expo` is the peer of the Expo transport (`/expo`), so a web
+app on [Vite](#web-apps-vite) does not need it. Everything else is optional: `zod` 4.2 or
+later for the adapters and for commands written with it, `vite` 5.4 or later for the web
+transport (`/vite`), and the library behind each adapter you import. `command()` works with any Standard Schema library the app already
 uses. With zod older than 4.2, commands still validate but list no arguments.
 
 ## Quick start
@@ -159,6 +160,8 @@ gh skill install janodetzel/app-commands setting-up-an-app --agent claude-code
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                                                     |
 | `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                                                   |
+| `@janodetzel/app-commands/web`         | The web transport for the page: `attachWebCommands`, called from the guarded client entry                                                                                                           |
+| `@janodetzel/app-commands/vite`        | The Vite dev server plugin, `appCommands()`, that the CLI and the MCP server connect to                                                                                                             |
 | `@janodetzel/app-commands/conformance` | `checkRegistry` and `checkUiCallers`, the suites an app runs against its own registry                                                                                                               |
 | `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                                                  |
 | `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `tanstack-router`, `tinybase`, `zustand`. One library each, so an optional peer you did not install is one you never import |
@@ -258,7 +261,8 @@ app-commands <namespace>.<name> --args '<json>'
 ```
 
 Global options: `--host` (default `localhost`), `--port` (default `8081`),
-`--timeout <ms>`, `--pretty`, `--help`.
+`--url <url>` (a web app's Vite dev server instead of Metro, see
+[Web apps](#web-apps-vite)), `--timeout <ms>`, `--pretty`, `--help`.
 
 The CLI hard-codes no command. On every call it asks the app for its commands and
 builds the flags from their JSON Schemas, so a new command works after a Metro reload
@@ -280,14 +284,16 @@ diagnostics for a human: the duration, the error code, a usage message.
 | 2         | The app could not be reached, or the two sides disagree on the protocol (`CONNECTION_FAILED`, `PROTOCOL_MISMATCH`) |
 
 Exit code 2 with `CONNECTION_FAILED` usually means Metro is not running, the app is not
-connected, or the app does not call `useAppCommands`.
+connected, or the app does not call `useAppCommands`. With `--url` it means the dev
+server is not running or has no plugin, no page is open, or the page does not call
+`attachWebCommands`; the message says which.
 
 ### The MCP server
 
 `app-commands-mcp` speaks MCP over stdio and exposes the same commands as tools, so an
 agent calls them with typed arguments instead of shelling out. It takes the CLI's
-`--host`, `--port` and `--timeout` options, or reads `APP_COMMANDS_HOST`,
-`APP_COMMANDS_PORT` and `APP_COMMANDS_TIMEOUT`.
+`--host`, `--port`, `--url` and `--timeout` options, or reads `APP_COMMANDS_HOST`,
+`APP_COMMANDS_PORT`, `APP_COMMANDS_URL` and `APP_COMMANDS_TIMEOUT`.
 
 Each command becomes one tool, named with `_` in place of the dot — `todos.add` becomes
 `todos_add` — with the app's own argument schema. Two tools are always there: `list`
@@ -299,6 +305,70 @@ The tool list is a snapshot taken when a client asks for it. After reloading the
 call `list` to pick up new commands. Point the client at the binary itself, not at a
 package-manager script: pnpm writes its banner to stdout, where only MCP traffic
 belongs.
+
+### Web apps (Vite)
+
+A web app on Vite, including TanStack Start, answers the same commands from the same CLI
+and MCP server. The transport is a dev server plugin and one call in the client entry; the
+commands, the registry and the adapters are the ones an Expo app uses.
+
+1. **Add the plugin** to `vite.config.ts`. It only runs on the dev server (`apply: "serve"`),
+   so `vite build` never contains it.
+
+   ```ts
+   import { appCommands } from "@janodetzel/app-commands/vite";
+   import { defineConfig } from "vite";
+
+   export default defineConfig({ plugins: [appCommands()] });
+   ```
+
+2. **Attach the registry** once, in the browser, from the client entry, inside this exact
+   guard:
+
+   ```ts
+   if (import.meta.hot) {
+   	const [{ attachWebCommands }, { commandRegistry }] = await Promise.all([
+   		import("@janodetzel/app-commands/web"),
+   		import("./app/commands"),
+   	]);
+   	attachWebCommands(import.meta.hot, commandRegistry);
+   }
+   ```
+
+   In `vite build` Vite replaces `import.meta.hot` with `undefined`, so the block and both
+   dynamic imports are dead code and neither chunk is emitted: the transport and the
+   registry, with every command name and description, stay out of a release build. A
+   static import, or a guard that is not `import.meta.hot`, does not have that property.
+   In TanStack Start, put it where only the browser runs, such as the client entry or an
+   effect in the root route, and keep the browser's router instance in a module variable
+   for [`tanstackRouterCommands`](#tanstack-router).
+
+3. **Drive it** with the dev server's URL, with the page open in a browser:
+
+   ```
+   pnpm app-commands --url http://localhost:5173 list
+   pnpm app-commands --url http://localhost:5173 todos.newTodoSubmitted --title "Buy milk"
+   ```
+
+   The MCP server takes `--url` too, or `APP_COMMANDS_URL`.
+
+`apps/web-example` is a small Vite and React app set up this way, with the check
+`pnpm --filter web-example check:release-bundle` that builds it and fails if the
+transport or the registry shows up in the output.
+
+How it works: the plugin adds `POST /__app-commands` to the dev server. A request goes to
+the page over Vite's own HMR channel, `attachWebCommands` runs it with the same handler the
+Expo transport uses, and the response comes back as the POST's answer. There is no second
+socket and nothing to configure. The endpoint runs commands, so it is for the CLI and the
+MCP server and never for a page: it refuses a request that carries an `Origin` or
+`Sec-Fetch-Site` header, which a browser adds and a script cannot remove, and it wants
+`application/json`. Vite's host check covers DNS rebinding. Do not expose a dev server to a
+network you do not trust.
+
+Unlike Metro there is no single connection: any number of CLIs and MCP servers can call at
+once. With several tabs of the app open, a command runs in the most recently connected one.
+It answers 503 (`CONNECTION_FAILED`, exit code 2) when no page is connected, and 504 when
+a page is open but never answers.
 
 ### The web console
 
@@ -530,6 +600,9 @@ its feature instance: `profileFeature.settings.unitButtonTapped(` for
 
 ### Release builds
 
+A web app keeps the transport out of a release build with the `import.meta.hot` guard
+described under [Web apps](#web-apps-vite); the plugin is dev-server only.
+
 The bridge accepts any valid command from anything that can reach Metro, so nothing in
 a release build may be able to answer one. `@janodetzel/app-commands/expo` exports a
 no-op in production behind a lazy `require`, and the bundler drops that branch — taking
@@ -544,9 +617,12 @@ data.
 
 ### Known limits
 
-- **One client at a time.** The app keeps a single client and drops the previous one
-  when another connects, so the CLI, the MCP server and the web console cannot all be
-  attached at once. The CLI reports being dropped and exits with code 2.
+- **One client at a time on Metro.** The app keeps a single client and drops the previous
+  one when another connects, so the CLI, the MCP server and the web console cannot all be
+  attached at once. The CLI reports being dropped and exits with code 2. The web transport
+  has no such limit.
+- **The web console is Metro only.** It speaks the Expo dev tools protocol, so a web app is
+  driven with the CLI or the MCP server.
 - **Every connected app answers.** With a simulator and an emulator on the same Metro,
   a command runs on both and the CLI takes the first answer. Keep one device connected
   while an agent works.

@@ -1,0 +1,20 @@
+{
+	"extends": "../../../tsconfig.base.json",
+	"compilerOptions": {
+		// Node loads this when it reads `vite.config.ts`, so it is built as CommonJS
+		// with Node's resolution, like the CLI. `src` is built for Metro, as ES
+		// modules without extensions, which Node cannot import.
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"target": "ES2022",
+		"lib": ["ES2023"],
+		"types": ["node"],
+		"outDir": "../build",
+		"rootDir": "..",
+		// Declarations, unlike the CLI: `vite.config.ts` is TypeScript.
+		"declaration": true,
+		"declarationMap": false,
+		"sourceMap": false
+	},
+	"include": ["./**/*.ts"]
+}

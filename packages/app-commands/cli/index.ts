@@ -10,6 +10,7 @@ const EXIT_UNREACHABLE = 2;
 type GlobalOptions = {
 	host?: string;
 	port?: number;
+	url?: string;
 	timeout?: number;
 	pretty: boolean;
 	help: boolean;
@@ -23,6 +24,8 @@ const USAGE = `Usage:
 Options:
   --host <host>    Metro host (default localhost)
   --port <port>    Metro port (default 8081)
+  --url <url>      Talk to a web app through its Vite dev server instead of Metro,
+                   for example http://localhost:5173 (--host and --port are ignored)
   --timeout <ms>   How long the app may take before it answers TIMEOUT
   --pretty         Indent the JSON on stdout
   --help           Show this message
@@ -41,6 +44,7 @@ async function main(argv: string[]): Promise<number> {
 	const [name, ...tokens] = rest as [string, ...string[]];
 
 	const client = await AppCommandsClient.connect({
+		...(options.url === undefined ? {} : { url: options.url }),
 		...(options.host === undefined ? {} : { host: options.host }),
 		...(options.port === undefined ? {} : { port: options.port }),
 	});
@@ -130,6 +134,9 @@ function takeGlobalOptions(argv: string[]): { options: GlobalOptions; rest: stri
 				break;
 			case "--port":
 				options.port = Number(argv[++i]);
+				break;
+			case "--url":
+				options.url = argv[++i];
 				break;
 			case "--timeout":
 				options.timeout = Number(argv[++i]);

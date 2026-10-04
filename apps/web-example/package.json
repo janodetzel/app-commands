@@ -1,0 +1,26 @@
+{
+	"name": "web-example",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"typecheck": "tsc --noEmit",
+		"check:release-bundle": "node ./scripts/check-release-bundle.mjs"
+	},
+	"dependencies": {
+		"@janodetzel/app-commands": "workspace:*",
+		"react": "19.2.3",
+		"react-dom": "19.2.3",
+		"zod": "^4.6.2",
+		"zustand": "^5.0.15"
+	},
+	"devDependencies": {
+		"@types/react": "~19.2.2",
+		"@types/react-dom": "~19.2.2",
+		"@vitejs/plugin-react": "^6.1.1",
+		"typescript": "~5.9.3",
+		"vite": "^8.3.2"
+	}
+}

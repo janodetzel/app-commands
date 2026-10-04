@@ -1,6 +1,6 @@
 ---
 name: driving-the-app
-description: Run typed commands against a running React Native or Expo app with the app-commands CLI to set up state, call business logic, and read results back without tapping through the UI. Use when verifying that a change works at runtime, reading app state, reproducing a bug in the running app, or putting the app on a screen before a visual check.
+description: Run typed commands against a running React Native, Expo or Vite web app with the app-commands CLI to set up state, call business logic, and read results back without tapping through the UI. Use when verifying that a change works at runtime, reading app state, reproducing a bug in the running app, or putting the app on a screen before a visual check.
 ---
 
 # Driving the app with app-commands
@@ -8,6 +8,8 @@ description: Run typed commands against a running React Native or Expo app with 
 The app exposes its business logic as named commands over the Metro dev server. A command calls the same function the UI calls, on the same instances, so a result here is what a user gets.
 
 Run the CLI through the project's package manager: `pnpm app-commands`, `npx app-commands`, or `yarn app-commands`. The examples below use `app-commands`.
+
+A web app on Vite is reached through its dev server instead of Metro: add `--url`, such as `app-commands --url http://localhost:5173 list`, to every call below. The MCP server takes the same `--url`, or `APP_COMMANDS_URL`.
 
 For a normal task, start immediately. Do not probe first with `--help`:
 
@@ -41,6 +43,7 @@ stdout holds one JSON document per call. On failure it is `{ "error", "code", "i
 - **One client at a time.** The app keeps one CLI, web console, or MCP server and drops the older one, which then exits with code 2.
 - **One device at a time.** Every connected device runs the command. Keep only one on Metro.
 - **Android emulator:** run `adb reverse tcp:8081 tcp:8081` once before the first call.
+- **Web apps (`--url`):** the Vite dev server must be running and the page open in a browser. `no page is connected` (exit code 2) means no tab is open; `no page answered` means a tab is open but does not call `attachWebCommands`. Ask the user to open the app rather than starting a browser yourself. Reload the page after a code change. There is no one-client limit, and with several tabs open the newest one runs the command.
 
 If the project registers the `app-commands` MCP server and its tools are in your tool list, prefer them. Each command is a tool with `_` in place of the dot, so `cart.add` becomes `cart_add`. The tool list is a snapshot, so call the `list` tool after a reload. The MCP server counts as the one client.
 

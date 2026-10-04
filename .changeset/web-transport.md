@@ -1,0 +1,5 @@
+---
+"@janodetzel/app-commands": minor
+---
+
+Add a web transport, so a React web app on Vite (including TanStack Start) can be driven by the CLI and the MCP server like an Expo app. A dev-only plugin, `appCommands()` from `@janodetzel/app-commands/vite`, adds `POST /__app-commands` to the dev server and relays each request to the page over Vite's HMR channel. In the browser, `attachWebCommands(import.meta.hot, registry)` from `@janodetzel/app-commands/web` answers with the same handler the Expo transport uses; called inside `if (import.meta.hot)` with dynamic imports, it and the registry are dropped from `vite build`. The CLI and the MCP server take `--url <dev server>` (or `APP_COMMANDS_URL` for the MCP server) to use it, and any number of clients can connect at once. The endpoint refuses requests a browser sent, so a web page cannot drive the app. `expo` is now an optional peer dependency, and `vite` 5.4 or later an optional peer of the plugin. A new `apps/web-example` shows the setup, with a `check:release-bundle` script that fails when the transport reaches a release build.
