@@ -39,6 +39,10 @@ const ADAPTER_LIBRARIES = {
 	// Takes `router` and the container ref as arguments and types the parts it
 	// calls, so an app on any Expo Router version pulls in nothing through it.
 	"expo-router": [],
+	// Takes the router as an argument and types the parts it calls, like the
+	// Expo Router adapter, so an app on any TanStack Router version pulls in
+	// nothing through it.
+	"tanstack-router": [],
 };
 
 /** One rule per adapter: its own library, plus zod, and nothing else. */

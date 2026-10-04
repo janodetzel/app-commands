@@ -1,8 +1,16 @@
 import { ApolloClient, ApolloLink, InMemoryCache, gql } from "@apollo/client";
 import { createNavigationContainerRef } from "@react-navigation/native";
 import type { router as expoRouter, useNavigationContainerRef } from "expo-router";
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRoute,
+	createRouter,
+	notFound,
+	redirect,
+} from "@tanstack/react-router";
 import { createMergeableStore, createStore as createTinybaseStore } from "tinybase";
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createStore } from "zustand/vanilla";
 import { z } from "zod";
 
@@ -14,6 +22,7 @@ import {
 } from "../src/adapters/expo-router";
 import { keyValueCommands } from "../src/adapters/key-value";
 import { navigationCommands, type NavigationRef } from "../src/adapters/react-navigation";
+import { tanstackRouterCommands, type TanStackRouterLike } from "../src/adapters/tanstack-router";
 import { tinybaseCommands } from "../src/adapters/tinybase";
 import { zustandCommands } from "../src/adapters/zustand";
 import { buildRegistry, type Registry } from "../src/core/command";
@@ -335,6 +344,250 @@ describe("expoRouterCommands", () => {
 			"nav.back",
 			"nav.inspect",
 			"nav.navigate",
+		]);
+	});
+});
+
+describe("tanstackRouterCommands", () => {
+	// With `isServer: false` TanStack Router reads `window.origin`, which Node lacks.
+	beforeAll(() => vi.stubGlobal("window", { origin: "http://localhost" }));
+	afterAll(() => vi.unstubAllGlobals());
+
+	// A real router on an in-memory history, wired the way <RouterProvider> wires
+	// it: a history change reloads the router.
+	const build = () => {
+		const root = createRootRoute();
+		const home = createRoute({ getParentRoute: () => root, path: "/" });
+		const post = createRoute({
+			getParentRoute: () => root,
+			path: "/posts/$postId",
+			validateSearch: (search: Record<string, unknown>) => ({
+				tab: typeof search.tab === "string" ? search.tab : undefined,
+			}),
+			loader: ({ params }) => {
+				if (params.postId === "missing") throw notFound();
+				if (params.postId === "boom") throw new Error("the post failed to load");
+				return { id: params.postId };
+			},
+		});
+		const settings = createRoute({ getParentRoute: () => root, path: "/settings" });
+		const old = createRoute({
+			getParentRoute: () => root,
+			path: "/old",
+			beforeLoad: () => {
+				throw redirect({ to: "/settings" });
+			},
+		});
+		const slow = createRoute({
+			getParentRoute: () => root,
+			path: "/slow",
+			loader: () => new Promise((resolve) => setTimeout(() => resolve("done"), 120)),
+		});
+
+		const router = createRouter({
+			isServer: false,
+			routeTree: root.addChildren([home, post, settings, old, slow]),
+			history: createMemoryHistory({ initialEntries: ["/"] }),
+		});
+		router.history.subscribe(() => void router.load());
+		return router;
+	};
+	const ready = async () => {
+		const router = build();
+		await router.load();
+		return { router, registry: tanstackRouterCommands({ router }) };
+	};
+	const read = async (registry: Registry, command: string, args?: unknown) => {
+		const res = await call(registry, command, args);
+		if (!res.ok) throw new Error(res.error);
+		return res.result;
+	};
+
+	it("takes TanStack Router's own router", async () => {
+		const { router } = await ready();
+		const like: TanStackRouterLike = router;
+
+		expect(like.routesByPath).toBeDefined();
+	});
+
+	it("reports the pathname, search, hash, params and the deepest route", async () => {
+		const { registry } = await ready();
+
+		expect(await read(registry, "nav.inspect")).toEqual({
+			pathname: "/",
+			search: {},
+			hash: "",
+			params: {},
+			routeId: "/",
+		});
+	});
+
+	it("lists the routes navigate accepts", async () => {
+		const { registry } = await ready();
+
+		expect(await read(registry, "nav.inspect", { key: "routes" })).toEqual([
+			"/",
+			"/old",
+			"/posts/$postId",
+			"/settings",
+			"/slow",
+		]);
+	});
+
+	it("returns every active match with its status under state", async () => {
+		const { registry } = await ready();
+		const state = (await read(registry, "nav.inspect", { key: "state" })) as {
+			status: string;
+			matches: { routeId: string; status: string }[];
+		};
+
+		expect(state.status).toBe("idle");
+		expect(state.matches.map((m) => m.routeId)).toEqual(["__root__", "/"]);
+	});
+
+	it("names the three things it can report, and rejects anything else", async () => {
+		const { registry } = await ready();
+
+		expect(failed(await call(registry, "nav.inspect", { key: "history" })).code).toBe(
+			"INVALID_ARGS",
+		);
+	});
+
+	it("navigates with params, search and hash, and returns where it landed", async () => {
+		const { registry } = await ready();
+		const location = await read(registry, "nav.navigate", {
+			to: "/posts/$postId",
+			params: { postId: "7" },
+			search: { tab: "comments" },
+			hash: "latest",
+		});
+
+		expect(location).toEqual({
+			pathname: "/posts/7",
+			search: { tab: "comments" },
+			hash: "latest",
+			params: { postId: "7" },
+			routeId: "/posts/$postId",
+		});
+		expect(await read(registry, "nav.inspect")).toEqual(location);
+	});
+
+	it("fails before navigating when the route does not exist, and names the ones that do", async () => {
+		const { router, registry } = await ready();
+		const res = failed(await call(registry, "nav.navigate", { to: "/nope" }));
+
+		expect(res.error).toMatch(
+			/no route "\/nope"; the routes are "\/", "\/old", "\/posts\/\$postId", "\/settings", "\/slow"/,
+		);
+		expect(router.state.location.pathname).toBe("/");
+	});
+
+	it("fails before navigating when a path param is missing, instead of landing on /posts/undefined", async () => {
+		const { router, registry } = await ready();
+		const res = failed(await call(registry, "nav.navigate", { to: "/posts/$postId" }));
+
+		expect(res.error).toMatch(/route "\/posts\/\$postId" needs the params postId/);
+		expect(router.state.location.pathname).toBe("/");
+	});
+
+	it("fails when the loader throws notFound", async () => {
+		const { registry } = await ready();
+		const res = failed(
+			await call(registry, "nav.navigate", { to: "/posts/$postId", params: { postId: "missing" } }),
+		);
+
+		expect(res.error).toMatch(/rendered not found/);
+	});
+
+	it("fails with the loader's error", async () => {
+		const { registry } = await ready();
+		const res = failed(
+			await call(registry, "nav.navigate", { to: "/posts/$postId", params: { postId: "boom" } }),
+		);
+
+		expect(res.error).toMatch(/failed to load: the post failed to load/);
+	});
+
+	it("fails and says where the app is when a redirect sends it elsewhere", async () => {
+		const { registry } = await ready();
+		const res = failed(await call(registry, "nav.navigate", { to: "/old" }));
+
+		expect(res.error).toMatch(/expected to be on \/old, but the app is on \/settings/);
+	});
+
+	it("waits for a slow loader before it answers", async () => {
+		const { registry } = await ready();
+		const location = await read(registry, "nav.navigate", { to: "/slow" });
+
+		expect(location).toMatchObject({ pathname: "/slow", routeId: "/slow" });
+	});
+
+	it("times out when the router never settles", async () => {
+		// Current TanStack Router waits for the loaders inside `navigate`; older
+		// versions answered while they still ran. A router that stays pending
+		// stands in for them.
+		const pending: TanStackRouterLike = {
+			state: {
+				status: "pending",
+				location: { pathname: "/", search: {}, hash: "" },
+				matches: [{ routeId: "__root__", params: {} }],
+			},
+			routesByPath: { "/slow": { id: "/slow" } },
+			navigate: async () => {},
+			history: { back: () => {}, canGoBack: () => true },
+		};
+		const registry = tanstackRouterCommands({ router: pending, focusTimeoutMs: 40 });
+		const res = failed(await call(registry, "nav.navigate", { to: "/slow" }));
+
+		expect(res.error).toMatch(/within 40 ms, but the router is still loading \//);
+		expect(failed(await call(registry, "nav.back")).error).toMatch(/changed nothing within 40 ms/);
+	});
+
+	it("rejects a route that is not an absolute path before it reaches the router", async () => {
+		const { registry } = await ready();
+
+		expect(failed(await call(registry, "nav.navigate", { to: "settings" })).code).toBe(
+			"INVALID_ARGS",
+		);
+	});
+
+	it("goes back and returns where it landed, and fails when there is nothing to go back to", async () => {
+		const { registry } = await ready();
+		expect(failed(await call(registry, "nav.back")).error).toMatch(/cannot go back/);
+
+		await read(registry, "nav.navigate", { to: "/settings" });
+		expect(await read(registry, "nav.back")).toMatchObject({ pathname: "/", routeId: "/" });
+	});
+
+	it("reads the router on every call, because TanStack Start creates it after a module-scope registry", async () => {
+		const app: { router?: ReturnType<typeof build> } = {};
+		const registry = tanstackRouterCommands({ router: () => app.router });
+
+		expect(await read(registry, "nav.inspect")).toBeNull();
+		expect(failed(await call(registry, "nav.navigate", { to: "/settings" })).error).toMatch(
+			/the router has not been created yet/,
+		);
+
+		app.router = build();
+		await app.router.load();
+		expect(await read(registry, "nav.inspect")).toMatchObject({ pathname: "/" });
+		expect(await read(registry, "nav.navigate", { to: "/settings" })).toMatchObject({
+			pathname: "/settings",
+		});
+	});
+
+	it("takes a namespace, and uses nav by default like the other navigation adapters", async () => {
+		const { router } = await ready();
+
+		expect(Object.keys(tanstackRouterCommands({ router })).sort()).toEqual([
+			"nav.back",
+			"nav.inspect",
+			"nav.navigate",
+		]);
+		expect(Object.keys(tanstackRouterCommands({ router, namespace: "web" })).sort()).toEqual([
+			"web.back",
+			"web.inspect",
+			"web.navigate",
 		]);
 	});
 });
