@@ -10,6 +10,10 @@
 		"lib": ["ES2023"],
 		"types": ["node"],
 		"outDir": "../build",
+		// `..` so the plugin can import `../src/core/protocol`, whose wire constants it
+		// shares with the page. The cost is a CommonJS copy of that one file at
+		// `build/src/core/protocol.js`, next to the ES module build at `build/core`.
+		// The CLI and the MCP server build the same way.
 		"rootDir": "..",
 		// Declarations, unlike the CLI: `vite.config.ts` is TypeScript.
 		"declaration": true,

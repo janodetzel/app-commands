@@ -339,6 +339,8 @@ commands, the registry and the adapters are the ones an Expo app uses.
    dynamic imports are dead code and neither chunk is emitted: the transport and the
    registry, with every command name and description, stay out of a release build. A
    static import, or a guard that is not `import.meta.hot`, does not have that property.
+   The snippet uses top-level `await`, which needs a `build.target` of `es2022` or later,
+   as Vite's default is; with an older target, wrap the block in an `async` function.
    In TanStack Start, put it where only the browser runs, such as the client entry or an
    effect in the root route, and keep the browser's router instance in a module variable
    for [`tanstackRouterCommands`](#tanstack-router).
