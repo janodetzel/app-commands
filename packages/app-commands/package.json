@@ -75,7 +75,7 @@
 	},
 	"peerDependencies": {
 		"expo": ">=53.0.0",
-		"@tanstack/react-router": ">=1.120.0",
+		"@tanstack/react-router": ">=1.170.0",
 		"react": "*",
 		"zod": "^4.2.0"
 	},
