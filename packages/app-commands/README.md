@@ -155,15 +155,15 @@ gh skill install janodetzel/app-commands setting-up-an-app --agent claude-code
 
 ## Entry points
 
-| Entry point                            | What it is                                                                                                                                                                              |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                                         |
-| `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                                       |
-| `@janodetzel/app-commands/conformance` | `checkRegistry` and `checkUiCallers`, the suites an app runs against its own registry                                                                                                   |
-| `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                                      |
-| `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `tanstack-router`, `zustand`. One library each, so an optional peer you did not install is one you never import |
-| `@janodetzel/app-commands/eslint`      | The six architecture rules, as a flat-config ESLint plugin                                                                                                                              |
-| `@janodetzel/app-commands/depcruise`   | `rules()`, the feature boundaries for dependency-cruiser                                                                                                                                |
+| Entry point                            | What it is                                                                                                                                                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                                                     |
+| `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                                                   |
+| `@janodetzel/app-commands/conformance` | `checkRegistry` and `checkUiCallers`, the suites an app runs against its own registry                                                                                                               |
+| `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                                                  |
+| `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `tanstack-router`, `tinybase`, `zustand`. One library each, so an optional peer you did not install is one you never import |
+| `@janodetzel/app-commands/eslint`      | The six architecture rules, as a flat-config ESLint plugin                                                                                                                                          |
+| `@janodetzel/app-commands/depcruise`   | `rules()`, the feature boundaries for dependency-cruiser                                                                                                                                            |
 
 The binaries are `app-commands` (the CLI) and `app-commands-mcp` (the MCP server).
 
@@ -313,7 +313,7 @@ takes a `namespace` option for an app that already uses the default name. They a
 separate entry points, so an app pays only for what it imports.
 
 Each adapter that holds state has one read command, `inspect`: `store.inspect`,
-`apollo.inspect`, `storage.inspect`, `nav.inspect`. Where the keys are known up front
+`apollo.inspect`, `storage.inspect`, `tinybase.inspect`, `nav.inspect`. Where the keys are known up front
 they are in the schema, so `store.inspect` takes a store name from an enum the tool
 definition lists. Where they change as the app runs, a call with no key lists them —
 the cache prefixes, the storage keys — and a key that matches nothing fails and names
@@ -403,6 +403,35 @@ variable and pass a function: the adapter asks for it on every command, and answ
 - `nav.inspect` returns `{ pathname, search, hash, params, routeId }`, what `useLocation`,
   `useSearch` and `useParams` give a component. `--key state` returns every active match
   with its status, and `--key routes` the paths `navigate` accepts.
+
+#### TinyBase
+
+An app whose state lives in TinyBase stores reads them with the `tinybase` adapter.
+`tinybase` 6 or later is an optional peer dependency; the adapter imports only its types.
+
+```ts
+import { tinybaseCommands } from "@janodetzel/app-commands/adapters/tinybase";
+
+export const commandRegistry = buildRegistry(
+	featureCommands({ sheets: sheetsFeature }),
+	// A Store or a MergeableStore, by the name an agent passes to `store`.
+	tinybaseCommands({ spreadsheet: spreadsheetStore, settings: settingsStore }),
+);
+```
+
+`tinybase.inspect` is read-only, like the other `inspect` commands, and never dumps a
+store:
+
+- `--store spreadsheet` returns an outline, `{ tables: { tableId: rowCount }, values: [valueId] }`.
+- `--store spreadsheet --table sheets` returns `{ total, rows }`, at most `--limit` rows
+  (100 unless `defaultLimit` says otherwise). `--row <id>` returns that one row, and
+  `--prefix sheet:` keeps the rows whose id starts with it.
+- `--store settings --part values` returns the store's values, `--value <id>` one of
+  them, and `--prefix` filters value ids. In the outline `--prefix` filters table and
+  value ids.
+
+A table, row, value or prefix that is not there fails and names what the store does
+have. A `MergeableStore` reads as its merged content, without the CRDT bookkeeping.
 
 ### Lint rules
 

@@ -69,6 +69,7 @@
 		"graphql": "^17.0.2",
 		"react": "19.2.3",
 		"react-native": "0.86.3",
+		"tinybase": "^6.4.2",
 		"typescript": "~5.9.3",
 		"zod": "^4.6.2",
 		"zustand": "^5.0.15"
@@ -77,6 +78,7 @@
 		"expo": ">=53.0.0",
 		"@tanstack/react-router": ">=1.170.0",
 		"react": "*",
+		"tinybase": ">=6.0.0",
 		"zod": "^4.2.0"
 	},
 	"exports": {
@@ -116,6 +118,10 @@
 			"types": "./build/adapters/tanstack-router.d.ts",
 			"default": "./build/adapters/tanstack-router.js"
 		},
+		"./adapters/tinybase": {
+			"types": "./build/adapters/tinybase.d.ts",
+			"default": "./build/adapters/tinybase.js"
+		},
 		"./adapters/zustand": {
 			"types": "./build/adapters/zustand.d.ts",
 			"default": "./build/adapters/zustand.js"
@@ -137,6 +143,9 @@
 			"optional": true
 		},
 		"@tanstack/react-router": {
+			"optional": true
+		},
+		"tinybase": {
 			"optional": true
 		},
 		"zustand": {

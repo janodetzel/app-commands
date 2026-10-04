@@ -31,6 +31,8 @@ const ADAPTER_LIBRARIES = {
 	"react-navigation": inNodeModules("@react-navigation/[^/]+"),
 	apollo: inNodeModules("@apollo/client"),
 	zustand: inNodeModules("zustand"),
+	// Types only: the adapter reads a Store or MergeableStore it is handed.
+	tinybase: inNodeModules("tinybase"),
 	// Named after a shape rather than a library, and copies the two methods it
 	// needs instead of importing them. An empty allowlist is what says so.
 	"key-value": [],

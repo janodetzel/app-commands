@@ -63,7 +63,7 @@ export { default } from "@/screens/editor/editor-screen";
    );
    ```
 
-   `featureCommands` holds every user action. `zustandCommands` gives `store.inspect`, the only read. No feature ships a list or a get command. `expoRouterCommands` (or `navigationCommands` for React Navigation, `tanstackRouterCommands` for TanStack Router on the web) gives `nav.navigate`, `nav.back`, and `nav.inspect`. Call `useAppCommands(commands)` in the root layout.
+   `featureCommands` holds every user action. `zustandCommands` gives `store.inspect`, the only read. No feature ships a list or a get command. An app on TinyBase adds `tinybaseCommands({ spreadsheet: store })`, which gives `tinybase.inspect` for its tables, rows and values. `expoRouterCommands` (or `navigationCommands` for React Navigation, `tanstackRouterCommands` for TanStack Router on the web) gives `nav.navigate`, `nav.back`, and `nav.inspect`. Call `useAppCommands(commands)` in the root layout.
 
 4. **Add `src/app/+not-found.tsx`.** Expo Router's built-in unmatched-route page replaces the tree the root layout lives in. The layout unmounts, `useAppCommands` unmounts with it, and every command after a bad `href` fails until someone taps back. An app-owned `+not-found` screen renders inside the layout.
 5. **Turn on the guardrails.** See [Guardrails](#guardrails).

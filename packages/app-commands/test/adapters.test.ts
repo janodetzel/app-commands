@@ -9,6 +9,7 @@ import {
 	notFound,
 	redirect,
 } from "@tanstack/react-router";
+import { createMergeableStore, createStore as createTinybaseStore } from "tinybase";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createStore } from "zustand/vanilla";
 import { z } from "zod";
@@ -22,6 +23,7 @@ import {
 import { keyValueCommands } from "../src/adapters/key-value";
 import { navigationCommands, type NavigationRef } from "../src/adapters/react-navigation";
 import { tanstackRouterCommands, type TanStackRouterLike } from "../src/adapters/tanstack-router";
+import { tinybaseCommands } from "../src/adapters/tinybase";
 import { zustandCommands } from "../src/adapters/zustand";
 import { buildRegistry, type Registry } from "../src/core/command";
 import { handleRequest } from "../src/core/handle";
@@ -690,6 +692,214 @@ describe("zustandCommands", () => {
 
 	it("refuses to register with no store at all", () => {
 		expect(() => zustandCommands({})).toThrow(/at least one store/);
+	});
+});
+
+describe("tinybaseCommands", () => {
+	// A hand-built store, the way an app's spreadsheet store looks after a few edits.
+	const populate = <S extends ReturnType<typeof createTinybaseStore>>(store: S) => {
+		store
+			.setTable("sheets", {
+				"sheet:1": { title: "Budget", rows: 12 },
+				"sheet:2": { title: "Trip", rows: 3 },
+				"draft:1": { title: "Untitled", rows: 0 },
+			})
+			.setTable("users", { u1: { name: "Ada", active: true } })
+			.setValues({ "settings.theme": "dark", "settings.units": "km", launched: 2 });
+		return store;
+	};
+	const build = () => {
+		const store = populate(createTinybaseStore());
+		return { store, registry: tinybaseCommands({ sheets: store }) };
+	};
+	const read = async (registry: Registry, args: Record<string, unknown>) => {
+		const res = await call(registry, "tinybase.inspect", { store: "sheets", ...args });
+		if (!res.ok) throw new Error(res.error);
+		return res.result;
+	};
+	const failure = async (registry: Registry, args: Record<string, unknown>) =>
+		failed(await call(registry, "tinybase.inspect", { store: "sheets", ...args }));
+
+	it("returns an outline when called with only a store, never a dump", async () => {
+		expect(await read(build().registry, {})).toEqual({
+			tables: { sheets: 3, users: 1 },
+			values: ["settings.theme", "settings.units", "launched"],
+		});
+	});
+
+	it("filters the outline by id prefix", async () => {
+		expect(await read(build().registry, { prefix: "settings" })).toEqual({
+			tables: {},
+			values: ["settings.theme", "settings.units"],
+		});
+	});
+
+	it("returns the rows of a table with their total", async () => {
+		expect(await read(build().registry, { table: "users" })).toEqual({
+			total: 1,
+			rows: { u1: { name: "Ada", active: true } },
+		});
+	});
+
+	it("returns one row, as the row itself", async () => {
+		expect(await read(build().registry, { table: "sheets", row: "sheet:2" })).toEqual({
+			title: "Trip",
+			rows: 3,
+		});
+	});
+
+	it("keeps only the rows whose id starts with the prefix", async () => {
+		const res = (await read(build().registry, { table: "sheets", prefix: "sheet:" })) as {
+			total: number;
+			rows: Record<string, unknown>;
+		};
+
+		expect(res.total).toBe(2);
+		expect(Object.keys(res.rows)).toEqual(["sheet:1", "sheet:2"]);
+	});
+
+	it("caps the rows it returns and still reports how many there are", async () => {
+		const res = (await read(build().registry, { table: "sheets", limit: 1 })) as {
+			total: number;
+			rows: Record<string, unknown>;
+		};
+
+		expect(res.total).toBe(3);
+		expect(Object.keys(res.rows)).toEqual(["sheet:1"]);
+	});
+
+	it("takes the default row cap from the options", async () => {
+		const store = populate(createTinybaseStore());
+		const registry = tinybaseCommands({ sheets: store }, { defaultLimit: 2 });
+
+		expect(
+			Object.keys(((await read(registry, { table: "sheets" })) as { rows: object }).rows),
+		).toHaveLength(2);
+	});
+
+	it("returns all values, filtered by prefix, or one by id", async () => {
+		const { registry } = build();
+
+		expect(await read(registry, { part: "values" })).toEqual({
+			"settings.theme": "dark",
+			"settings.units": "km",
+			launched: 2,
+		});
+		expect(await read(registry, { part: "values", prefix: "settings." })).toEqual({
+			"settings.theme": "dark",
+			"settings.units": "km",
+		});
+		expect(await read(registry, { value: "launched" })).toBe(2);
+	});
+
+	it("fails and names the tables it has when a table is not there", async () => {
+		expect((await failure(build().registry, { table: "nope" })).error).toMatch(
+			/no table "nope"; it has "sheets", "users"/,
+		);
+	});
+
+	it("fails and names the rows it has when a row is not there", async () => {
+		expect((await failure(build().registry, { table: "sheets", row: "nope" })).error).toMatch(
+			/table "sheets" has no row "nope"; it has 3 rows: "sheet:1", "sheet:2", "draft:1"/,
+		);
+	});
+
+	it("fails and names what it has when a prefix matches nothing, rather than returning empty", async () => {
+		const { registry } = build();
+
+		expect((await failure(registry, { table: "sheets", prefix: "zzz" })).error).toMatch(
+			/no row in table "sheets" starts with "zzz"; it has 3 rows/,
+		);
+		expect((await failure(registry, { part: "values", prefix: "zzz" })).error).toMatch(
+			/no value in store "sheets" starts with "zzz"; it has "settings.theme"/,
+		);
+		expect((await failure(registry, { prefix: "zzz" })).error).toMatch(
+			/no table or value in store "sheets" starts with "zzz"; tables: "sheets", "users"; values: "settings.theme"/,
+		);
+	});
+
+	it("fails and names the values it has when a value is not there", async () => {
+		expect((await failure(build().registry, { value: "nope" })).error).toMatch(
+			/no value "nope"; it has "settings.theme", "settings.units", "launched"/,
+		);
+	});
+
+	it("says so when the store is empty", async () => {
+		const registry = tinybaseCommands({ sheets: createTinybaseStore() });
+
+		expect(await read(registry, {})).toEqual({ tables: {}, values: [] });
+		expect((await failure(registry, { table: "sheets" })).error).toMatch(/has no tables/);
+		expect((await failure(registry, { value: "x" })).error).toMatch(/has no values/);
+		expect((await failure(registry, { prefix: "x" })).error).toMatch(/is empty/);
+	});
+
+	it("names the ids of a long table, and says how many more there are", async () => {
+		const store = createTinybaseStore();
+		for (let i = 0; i < 25; i++) store.setRow("big", `r${i}`, { n: i });
+		const registry = tinybaseCommands({ sheets: store });
+
+		expect((await failure(registry, { table: "big", row: "nope" })).error).toMatch(
+			/it has 25 rows: "r0".*"r19" and 5 more/,
+		);
+	});
+
+	it("rejects arguments that contradict each other", async () => {
+		const { registry } = build();
+
+		expect((await failure(registry, { row: "sheet:1" })).error).toMatch(/needs the 'table'/);
+		expect((await failure(registry, { table: "sheets", part: "values" })).error).toMatch(
+			/give one of them/,
+		);
+		expect((await failure(registry, { value: "launched", part: "tables" })).error).toMatch(
+			/cannot be combined with part 'tables'/,
+		);
+		expect(
+			(await failure(registry, { table: "sheets", row: "sheet:1", prefix: "s" })).error,
+		).toMatch(/either 'row'.*or 'prefix'/);
+		expect((await failure(registry, { value: "launched", prefix: "l" })).error).toMatch(
+			/either 'value'.*or 'prefix'/,
+		);
+	});
+
+	it("sees a write the UI made, which is what verifying a command means", async () => {
+		const { store, registry } = build();
+		store.setCell("users", "u1", "name", "Grace");
+
+		expect(await read(registry, { table: "users", row: "u1" })).toMatchObject({ name: "Grace" });
+	});
+
+	it("reads a MergeableStore the same way", async () => {
+		const store = populate(createMergeableStore("test"));
+		const registry = tinybaseCommands({ shared: store });
+
+		const res = await call(registry, "tinybase.inspect", { store: "shared", table: "users" });
+		expect(res).toMatchObject({ ok: true, result: { total: 1 } });
+	});
+
+	it("reads several stores by name, and puts the names in the schema", async () => {
+		const settings = createTinybaseStore().setValues({ units: "km" });
+		const registry = tinybaseCommands({ spreadsheet: populate(createTinybaseStore()), settings });
+
+		expect(
+			await call(registry, "tinybase.inspect", { store: "settings", value: "units" }),
+		).toMatchObject({
+			ok: true,
+			result: "km",
+		});
+		expect(failed(await call(registry, "tinybase.inspect", { store: "nope" })).code).toBe(
+			"INVALID_ARGS",
+		);
+	});
+
+	it("exposes no way to write, and refuses to register with no store", () => {
+		expect(Object.keys(build().registry)).toEqual(["tinybase.inspect"]);
+		expect(() => tinybaseCommands({})).toThrow(/at least one store/);
+	});
+
+	it("takes a namespace", () => {
+		const registry = tinybaseCommands({ s: createTinybaseStore() }, { namespace: "sheets" });
+
+		expect(Object.keys(registry)).toEqual(["sheets.inspect"]);
 	});
 });
 
