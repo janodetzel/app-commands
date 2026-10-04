@@ -155,15 +155,15 @@ gh skill install janodetzel/app-commands setting-up-an-app --agent claude-code
 
 ## Entry points
 
-| Entry point                            | What it is                                                                                                                                                           |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                      |
-| `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                    |
-| `@janodetzel/app-commands/conformance` | `checkRegistry` and `checkUiCallers`, the suites an app runs against its own registry                                                                                |
-| `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                   |
-| `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `zustand`. One library each, so an optional peer you did not install is one you never import |
-| `@janodetzel/app-commands/eslint`      | The six architecture rules, as a flat-config ESLint plugin                                                                                                           |
-| `@janodetzel/app-commands/depcruise`   | `rules()`, the feature boundaries for dependency-cruiser                                                                                                             |
+| Entry point                            | What it is                                                                                                                                                                              |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@janodetzel/app-commands`             | `command()`, `featureCommands()`, and the core: `Command`, `Registry`, `buildRegistry`, `handleRequest`, the protocol constants                                                         |
+| `@janodetzel/app-commands/expo`        | The Expo dev tools transport and the `useAppCommands` hook. A no-op in production                                                                                                       |
+| `@janodetzel/app-commands/conformance` | `checkRegistry` and `checkUiCallers`, the suites an app runs against its own registry                                                                                                   |
+| `@janodetzel/app-commands/protocol`    | The wire types, for another client                                                                                                                                                      |
+| `@janodetzel/app-commands/adapters/*`  | The adapters: `apollo`, `expo-router`, `key-value`, `react-navigation`, `tanstack-router`, `zustand`. One library each, so an optional peer you did not install is one you never import |
+| `@janodetzel/app-commands/eslint`      | The six architecture rules, as a flat-config ESLint plugin                                                                                                                              |
+| `@janodetzel/app-commands/depcruise`   | `rules()`, the feature boundaries for dependency-cruiser                                                                                                                                |
 
 The binaries are `app-commands` (the CLI) and `app-commands-mcp` (the MCP server).
 
@@ -368,6 +368,41 @@ screen renders inside the root layout, so the bridge stays up and `nav.back` rec
 
 Every file under `app/` is a route, so keep the composition root and the registry
 outside it, for example in `src/instances/index.ts` and `src/commands.ts`.
+
+#### TanStack Router
+
+A web app on TanStack Router (including TanStack Start) uses the `tanstack-router`
+adapter. It gives the same three commands under the same `nav` namespace, so use its
+`namespace` option if you also register another navigation adapter.
+`@tanstack/react-router` is an optional peer dependency; the adapter imports nothing
+from it and types only the parts it calls.
+
+```ts
+import { tanstackRouterCommands } from "@janodetzel/app-commands/adapters/tanstack-router";
+
+export const commandRegistry = buildRegistry(
+	featureCommands({ todos: todosFeature }),
+	// The router, or a function that returns it once it exists.
+	tanstackRouterCommands({ router: () => router }),
+);
+```
+
+TanStack Start builds the router in a `getRouter()` factory that the framework calls,
+and on the server it builds one per request. Keep the browser's instance in a module
+variable and pass a function: the adapter asks for it on every command, and answers
+`null` (or "the router has not been created yet") until it exists.
+
+- `nav.navigate --to /posts/$postId --params '{"postId":"7"}'` goes through
+  `router.navigate`, the call a `<Link>` makes, with optional `--search` and `--hash`.
+  `to` is a route path, and `nav.inspect --key routes` lists them. It fails **before**
+  navigating when `to` is not a route or a path param is missing, because TanStack Router
+  would otherwise land on its not-found page or on `/posts/undefined`. After navigating
+  it waits for the router to settle and fails when a loader throws `notFound` or an
+  error, or when the app ends up on another route, which is what a redirect does.
+- `nav.back` goes through `router.history.back` and fails when there is nothing to go back to.
+- `nav.inspect` returns `{ pathname, search, hash, params, routeId }`, what `useLocation`,
+  `useSearch` and `useParams` give a component. `--key state` returns every active match
+  with its status, and `--key routes` the paths `navigate` accepts.
 
 ### Lint rules
 

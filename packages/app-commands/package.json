@@ -60,6 +60,7 @@
 	"devDependencies": {
 		"@apollo/client": "^4.3.0",
 		"@react-navigation/native": "^7.3.18",
+		"@tanstack/react-router": "^1.170.41",
 		"@types/react": "~19.2.2",
 		"@types/ws": "^8.18.1",
 		"expo": "~57.0.22",
@@ -74,6 +75,7 @@
 	},
 	"peerDependencies": {
 		"expo": ">=53.0.0",
+		"@tanstack/react-router": ">=1.120.0",
 		"react": "*",
 		"zod": "^4.2.0"
 	},
@@ -110,6 +112,10 @@
 			"types": "./build/adapters/react-navigation.d.ts",
 			"default": "./build/adapters/react-navigation.js"
 		},
+		"./adapters/tanstack-router": {
+			"types": "./build/adapters/tanstack-router.d.ts",
+			"default": "./build/adapters/tanstack-router.js"
+		},
 		"./adapters/zustand": {
 			"types": "./build/adapters/zustand.d.ts",
 			"default": "./build/adapters/zustand.js"
@@ -128,6 +134,9 @@
 			"optional": true
 		},
 		"@react-navigation/native": {
+			"optional": true
+		},
+		"@tanstack/react-router": {
 			"optional": true
 		},
 		"zustand": {
