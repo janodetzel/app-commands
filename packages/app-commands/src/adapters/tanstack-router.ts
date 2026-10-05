@@ -24,8 +24,14 @@ export type TanStackRouterLike = {
 		location: { pathname: string; search: unknown; hash: string };
 		matches: readonly MatchLike[];
 	};
-	/** Every route by its full path, `/posts/$postId`: what `to` may be. */
-	routesByPath: Record<string, unknown>;
+	/**
+	 * Every route by its full path, `/posts/$postId`: what `to` may be. Typed as
+	 * `object` because file-based routes type it with the generated
+	 * `FileRoutesByFullPath` interface, and an interface has no index signature, so
+	 * it is no `Record<string, unknown>`. The adapter reads only its keys and the
+	 * route's `id`.
+	 */
+	routesByPath: object;
 	navigate(opts: {
 		to: string;
 		params?: Record<string, unknown>;
@@ -133,7 +139,8 @@ export function tanstackRouterCommands(opts: TanStackRouterCommandsOptions): Reg
 						...(hash ? { hash } : {}),
 					});
 
-					const targetId = (router.routesByPath[to] as { id?: string } | undefined)?.id ?? to;
+					const targetId =
+						(router.routesByPath as Record<string, { id?: string } | undefined>)[to]?.id ?? to;
 					// Older versions answer `navigate` while the loaders still run, so wait
 					// for the router to settle, then look at where it ended up.
 					const settled = await waitFor(

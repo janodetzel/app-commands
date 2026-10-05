@@ -412,6 +412,23 @@ describe("tanstackRouterCommands", () => {
 		expect(like.routesByPath).toBeDefined();
 	});
 
+	it("takes a router whose routes are typed by a generated interface", async () => {
+		// TanStack Start types routesByPath with the FileRoutesByFullPath interface
+		// from routeTree.gen.ts. An interface has no index signature, so it is not a
+		// Record<string, unknown>.
+		interface FileRoutesByFullPath {
+			"/": unknown;
+			"/posts/$postId": unknown;
+		}
+		const { router } = await ready();
+		const typed = router as Omit<typeof router, "routesByPath"> & {
+			routesByPath: FileRoutesByFullPath;
+		};
+		const registry = tanstackRouterCommands({ router: () => typed });
+
+		expect(await read(registry, "nav.inspect", { key: "routes" })).toContain("/posts/$postId");
+	});
+
 	it("reports the pathname, search, hash, params and the deepest route", async () => {
 		const { registry } = await ready();
 
