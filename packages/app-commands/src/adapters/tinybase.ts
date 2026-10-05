@@ -1,4 +1,3 @@
-import type { Store } from "tinybase";
 import { z } from "zod";
 
 import { command } from "../command/builder";
@@ -10,6 +9,25 @@ export type TinybaseCommandsOptions = {
 	/** Rows returned from one table when the call gives no `limit`. Defaults to 100. */
 	defaultLimit?: number;
 };
+
+/**
+ * The part of a TinyBase store the adapter reads. A `Store` or `MergeableStore`
+ * from `tinybase` is assignable to it, and so is one from `tinybase/with-schemas`:
+ * its setters take only the schema's types, which makes it no `Store`, and its
+ * getters take the schema's ids. The methods are declared as methods, not
+ * properties, so those narrower ids still fit.
+ */
+export interface TinybaseStoreLike {
+	getTableIds(): string[];
+	hasTable(tableId: string): boolean;
+	getRowCount(tableId: string): number;
+	getRowIds(tableId: string): string[];
+	hasRow(tableId: string, rowId: string): boolean;
+	getRow(tableId: string, rowId: string): object;
+	getValueIds(): string[];
+	hasValue(valueId: string): boolean;
+	getValue(valueId: string): unknown;
+}
 
 /** How many ids a failure names before it says "and N more". */
 const NAMED_IDS = 20;
@@ -25,14 +43,15 @@ const named = (ids: readonly string[]) =>
 /**
  * Reads TinyBase stores: the tables, rows and values the screens render from.
  * A `MergeableStore` is a `Store`, so it is passed the same way and reads as the
- * merged content, without the CRDT bookkeeping behind it.
+ * merged content, without the CRDT bookkeeping behind it. A store typed with
+ * `tinybase/with-schemas` is passed as it is, without a cast.
  *
  * Read-only on purpose. A command that wrote a cell would put the app in a state
  * no tap can produce, and the agent would verify something users never see. To
  * change data, expose the store's mutation as a named entry point.
  */
 export function tinybaseCommands(
-	stores: Record<string, Store>,
+	stores: Record<string, TinybaseStoreLike>,
 	opts: TinybaseCommandsOptions = {},
 ): Registry {
 	const names = Object.keys(stores);

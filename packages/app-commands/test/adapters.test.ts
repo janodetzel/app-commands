@@ -10,6 +10,7 @@ import {
 	redirect,
 } from "@tanstack/react-router";
 import { createMergeableStore, createStore as createTinybaseStore } from "tinybase";
+import { createMergeableStore as createTypedMergeableStore } from "tinybase/with-schemas";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createStore } from "zustand/vanilla";
 import { z } from "zod";
@@ -874,6 +875,25 @@ describe("tinybaseCommands", () => {
 
 		const res = await call(registry, "tinybase.inspect", { store: "shared", table: "users" });
 		expect(res).toMatchObject({ ok: true, result: { total: 1 } });
+	});
+
+	it("takes a store typed with tinybase/with-schemas, without a cast", async () => {
+		// Its setters accept only the schema's types, so it is no `Store`; the adapter
+		// only reads, and must take it as it is.
+		const settings = createTypedMergeableStore("test")
+			.setSchema({}, { default_scale: { type: "number", default: 100 } } as const)
+			.setValue("default_scale", 120);
+		const sheets = createTypedMergeableStore("test")
+			.setTablesSchema({ sheets: { title: { type: "string" } } } as const)
+			.setRow("sheets", "s1", { title: "Budget" });
+		const registry = tinybaseCommands({ settings, sheets });
+
+		expect(
+			await call(registry, "tinybase.inspect", { store: "settings", value: "default_scale" }),
+		).toMatchObject({ ok: true, result: 120 });
+		expect(
+			await call(registry, "tinybase.inspect", { store: "sheets", table: "sheets", row: "s1" }),
+		).toMatchObject({ ok: true, result: { title: "Budget" } });
 	});
 
 	it("reads several stores by name, and puts the names in the schema", async () => {
