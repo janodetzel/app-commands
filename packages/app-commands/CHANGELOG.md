@@ -1,5 +1,17 @@
 # @janodetzel/app-commands
 
+## 0.7.0
+
+### Minor Changes
+
+- 7d46737: `tinybaseCommands` can read stores created after the registry is built. Besides a record of stores it takes a `TinybaseStoreSource`, `{ list, get }`, which it calls on every read, for apps that create a store per signed-in user or per document at runtime. With a source, `store` is any id and is checked when the command runs; an id that is not there fails and names the stores that exist. `tinybase.inspect` without `store` now returns `{ stores: [id] }`, with a record or a source.
+
+### Patch Changes
+
+- 05610ad: `checkUiCallers` exempts `tinybase.inspect` by default. The default exempt list is now derived from the namespaces the built-in adapters register under, so an adapter added later is exempt as well. It is exported as `defaultExempt` from `@janodetzel/app-commands/conformance`, to extend rather than repeat when an app gives an adapter its own namespace.
+- 7d126b3: `tanstackRouterCommands` takes a router with file-based typed routes without a cast. `TanStackRouterLike.routesByPath` is now typed as `object`: TanStack Start types it with the generated `FileRoutesByFullPath` interface, which has no index signature and so was not assignable to `Record<string, unknown>`. The adapter reads only the route paths and ids, as before.
+- 397d739: `tinybaseCommands` takes stores typed with `tinybase/with-schemas` without a cast. It now reads each store through `TinybaseStoreLike`, the few getters it calls, instead of requiring a `Store`, whose setters a schema-typed store does not match. Untyped `Store`s and `MergeableStore`s pass as before.
+
 ## 0.6.0
 
 ### Minor Changes
