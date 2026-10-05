@@ -3,6 +3,7 @@ import { z } from "zod";
 import { command } from "../command/builder";
 import { featureCommands } from "../command/tree";
 import type { Registry } from "../core/command";
+import { ADAPTER_NAMESPACES } from "./namespaces";
 
 /**
  * The part of Expo Router's `router` the adapter calls. The `router` exported by
@@ -78,7 +79,7 @@ export function expoRouterCommands(opts: ExpoRouterCommandsOptions): Registry {
 	};
 
 	return featureCommands({
-		[opts.namespace ?? "nav"]: {
+		[opts.namespace ?? ADAPTER_NAMESPACES.navigation]: {
 			inspect: command()
 				.input({ key: z.enum(["current", "state"]).default("current") })
 				.description(

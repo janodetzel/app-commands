@@ -3,6 +3,7 @@ import { z } from "zod";
 import { command } from "../command/builder";
 import { featureCommands } from "../command/tree";
 import type { Registry } from "../core/command";
+import { ADAPTER_NAMESPACES } from "./namespaces";
 
 /**
  * The shape of AsyncStorage, copied rather than imported so this package does
@@ -32,7 +33,7 @@ export function keyValueCommands(
 	opts: KeyValueCommandsOptions = {},
 ): Registry {
 	return featureCommands({
-		[opts.namespace ?? "storage"]: {
+		[opts.namespace ?? ADAPTER_NAMESPACES.keyValue]: {
 			inspect: command()
 				.input({ key: z.string().min(1).optional() })
 				.description(

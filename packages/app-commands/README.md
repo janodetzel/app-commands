@@ -479,14 +479,15 @@ variable and pass a function: the adapter asks for it on every command, and answ
 #### TinyBase
 
 An app whose state lives in TinyBase stores reads them with the `tinybase` adapter.
-`tinybase` 6 or later is an optional peer dependency; the adapter imports only its types.
+`tinybase` 6 or later is an optional peer dependency; the adapter imports nothing from it
+and reads a store through the few getters it needs.
 
 ```ts
 import { tinybaseCommands } from "@janodetzel/app-commands/adapters/tinybase";
 
 export const commandRegistry = buildRegistry(
 	featureCommands({ sheets: sheetsFeature }),
-	// A Store or a MergeableStore, by the name an agent passes to `store`.
+	// A Store or a MergeableStore, schema-typed or not, by the name an agent passes to `store`.
 	tinybaseCommands({ spreadsheet: spreadsheetStore, settings: settingsStore }),
 );
 ```
@@ -504,6 +505,20 @@ store:
 
 A table, row, value or prefix that is not there fails and names what the store does
 have. A `MergeableStore` reads as its merged content, without the CRDT bookkeeping.
+Without `--store`, `tinybase.inspect` returns `{ stores: [id] }`.
+
+A record fixes the stores when the registry is built, which is at module scope. When
+the app creates stores while it runs, one per signed-in user or per open document,
+pass `list` and `get` instead. The adapter calls them on every read, so a store
+created later can be inspected, and an id that is gone fails and names the ones
+that exist:
+
+```ts
+tinybaseCommands({
+	list: () => storeManager.ids(),
+	get: (id) => storeManager.get(id),
+});
+```
 
 ### Lint rules
 
@@ -597,8 +612,10 @@ expect(checkUiCallers(registry, { sources: screens })).toEqual([]);
 
 It finds a call by its text, `.<path below the namespace>(`, so call a command through
 its feature instance: `profileFeature.settings.unitButtonTapped(` for
-`profile.settings.unitButtonTapped`. The adapters' namespaces (`store`, `nav`, `apollo`,
-`storage`) are exempt; pass `exempt` to add one you renamed.
+`profile.settings.unitButtonTapped`. The built-in adapters' namespaces (`apollo`, `nav`,
+`storage`, `store`, `tinybase`) are exempt. `exempt` replaces that list, so to add a
+namespace you gave an adapter, extend `defaultExempt`:
+`checkUiCallers(registry, { sources, exempt: [...defaultExempt, "settings"] })`.
 
 ### Release builds
 

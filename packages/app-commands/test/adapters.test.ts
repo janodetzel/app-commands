@@ -10,6 +10,7 @@ import {
 	redirect,
 } from "@tanstack/react-router";
 import { createMergeableStore, createStore as createTinybaseStore } from "tinybase";
+import { createMergeableStore as createTypedMergeableStore } from "tinybase/with-schemas";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createStore } from "zustand/vanilla";
 import { z } from "zod";
@@ -25,6 +26,7 @@ import { navigationCommands, type NavigationRef } from "../src/adapters/react-na
 import { tanstackRouterCommands, type TanStackRouterLike } from "../src/adapters/tanstack-router";
 import { tinybaseCommands } from "../src/adapters/tinybase";
 import { zustandCommands } from "../src/adapters/zustand";
+import { checkUiCallers } from "../src/conformance";
 import { buildRegistry, type Registry } from "../src/core/command";
 import { handleRequest } from "../src/core/handle";
 import { PROTOCOL_VERSION, type Response } from "../src/core/protocol";
@@ -408,6 +410,23 @@ describe("tanstackRouterCommands", () => {
 		const like: TanStackRouterLike = router;
 
 		expect(like.routesByPath).toBeDefined();
+	});
+
+	it("takes a router whose routes are typed by a generated interface", async () => {
+		// TanStack Start types routesByPath with the FileRoutesByFullPath interface
+		// from routeTree.gen.ts. An interface has no index signature, so it is not a
+		// Record<string, unknown>.
+		interface FileRoutesByFullPath {
+			"/": unknown;
+			"/posts/$postId": unknown;
+		}
+		const { router } = await ready();
+		const typed = router as Omit<typeof router, "routesByPath"> & {
+			routesByPath: FileRoutesByFullPath;
+		};
+		const registry = tanstackRouterCommands({ router: () => typed });
+
+		expect(await read(registry, "nav.inspect", { key: "routes" })).toContain("/posts/$postId");
 	});
 
 	it("reports the pathname, search, hash, params and the deepest route", async () => {
@@ -876,6 +895,25 @@ describe("tinybaseCommands", () => {
 		expect(res).toMatchObject({ ok: true, result: { total: 1 } });
 	});
 
+	it("takes a store typed with tinybase/with-schemas, without a cast", async () => {
+		// Its setters accept only the schema's types, so it is no `Store`; the adapter
+		// only reads, and must take it as it is.
+		const settings = createTypedMergeableStore("test")
+			.setSchema({}, { default_scale: { type: "number", default: 100 } } as const)
+			.setValue("default_scale", 120);
+		const sheets = createTypedMergeableStore("test")
+			.setTablesSchema({ sheets: { title: { type: "string" } } } as const)
+			.setRow("sheets", "s1", { title: "Budget" });
+		const registry = tinybaseCommands({ settings, sheets });
+
+		expect(
+			await call(registry, "tinybase.inspect", { store: "settings", value: "default_scale" }),
+		).toMatchObject({ ok: true, result: 120 });
+		expect(
+			await call(registry, "tinybase.inspect", { store: "sheets", table: "sheets", row: "s1" }),
+		).toMatchObject({ ok: true, result: { title: "Budget" } });
+	});
+
 	it("reads several stores by name, and puts the names in the schema", async () => {
 		const settings = createTinybaseStore().setValues({ units: "km" });
 		const registry = tinybaseCommands({ spreadsheet: populate(createTinybaseStore()), settings });
@@ -889,6 +927,69 @@ describe("tinybaseCommands", () => {
 		expect(failed(await call(registry, "tinybase.inspect", { store: "nope" })).code).toBe(
 			"INVALID_ARGS",
 		);
+	});
+
+	it("lists the stores when called without one", async () => {
+		const { registry } = build();
+
+		expect(await call(registry, "tinybase.inspect", {})).toMatchObject({
+			ok: true,
+			result: { stores: ["sheets"] },
+		});
+		expect(failed(await call(registry, "tinybase.inspect", { table: "users" })).error).toMatch(
+			/give the 'store'/,
+		);
+	});
+
+	describe("with a source for stores created at runtime", () => {
+		// The way an app keeps one store per signed-in user or per open document.
+		const build = () => {
+			const live = new Map<string, ReturnType<typeof createTinybaseStore>>();
+			const registry = tinybaseCommands({
+				list: () => [...live.keys()],
+				get: (id) => live.get(id),
+			});
+			return { live, registry };
+		};
+
+		it("registers before any store exists, and reads one created afterwards", async () => {
+			const { live, registry } = build();
+			expect(await call(registry, "tinybase.inspect", {})).toMatchObject({
+				ok: true,
+				result: { stores: [] },
+			});
+
+			live.set("spreadsheetStore-123", populate(createTinybaseStore()));
+
+			expect(await call(registry, "tinybase.inspect", {})).toMatchObject({
+				ok: true,
+				result: { stores: ["spreadsheetStore-123"] },
+			});
+			expect(
+				await call(registry, "tinybase.inspect", {
+					store: "spreadsheetStore-123",
+					table: "users",
+					row: "u1",
+				}),
+			).toMatchObject({ ok: true, result: { name: "Ada" } });
+		});
+
+		it("fails for a store that is gone, and names the ones that exist", async () => {
+			const { live, registry } = build();
+			live.set("userStore-a", createTinybaseStore());
+			live.set("userStore-b", createTinybaseStore());
+			live.delete("userStore-a");
+
+			expect(
+				failed(await call(registry, "tinybase.inspect", { store: "userStore-a" })).error,
+			).toMatch(/no store "userStore-a"; there are "userStore-b"/);
+		});
+
+		it("says in the description that the stores are listed at call time", () => {
+			const { registry } = build();
+
+			expect(registry["tinybase.inspect"]!.description).toMatch(/list them first/);
+		});
 	});
 
 	it("exposes no way to write, and refuses to register with no store", () => {
@@ -946,6 +1047,30 @@ describe("keyValueCommands", () => {
 });
 
 describe("the slices together", () => {
+	it("are each exempt from checkUiCallers by default, since no screen calls an adapter", () => {
+		const ref = createNavigationContainerRef<{ Home: undefined }>();
+		const client = new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() });
+		const registries = {
+			apollo: apolloCommands(client),
+			expoRouter: expoRouterCommands({
+				router: fakeExpoRouter({}).router,
+				navigationRef: () => null,
+			}),
+			keyValue: keyValueCommands({ getItem: async () => null, getAllKeys: async () => [] }),
+			navigation: navigationCommands(ref as NavigationRef, { routes: z.enum(["Home"]) }),
+			tanstackRouter: tanstackRouterCommands({ router: () => undefined }),
+			tinybase: tinybaseCommands({ s: createTinybaseStore() }),
+			zustand: zustandCommands({ s: createStore(() => ({})) }),
+		};
+
+		for (const [adapter, registry] of Object.entries(registries)) {
+			expect({ adapter, problems: checkUiCallers(registry, { sources: [] }) }).toEqual({
+				adapter,
+				problems: [],
+			});
+		}
+	});
+
 	it("merge into one registry, and a clash between two adapters is named", () => {
 		const ref = createNavigationContainerRef<{ Home: undefined }>();
 		const routes = z.enum(["Home"]);
