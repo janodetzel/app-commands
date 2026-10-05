@@ -4,6 +4,7 @@ import { z } from "zod";
 import { command } from "../command/builder";
 import { featureCommands } from "../command/tree";
 import type { Registry } from "../core/command";
+import { ADAPTER_NAMESPACES } from "./namespaces";
 
 export type ApolloCommandsOptions = { namespace?: string };
 
@@ -26,7 +27,7 @@ export function apolloCommands(client: ApolloClient, opts: ApolloCommandsOptions
 	};
 
 	return featureCommands({
-		[opts.namespace ?? "apollo"]: {
+		[opts.namespace ?? ADAPTER_NAMESPACES.apollo]: {
 			inspect: command()
 				.input({ prefix: z.string().min(1).optional() })
 				.description(

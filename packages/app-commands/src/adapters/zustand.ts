@@ -4,6 +4,7 @@ import { z } from "zod";
 import { command } from "../command/builder";
 import { featureCommands } from "../command/tree";
 import type { Registry } from "../core/command";
+import { ADAPTER_NAMESPACES } from "./namespaces";
 
 export type ZustandCommandsOptions = { namespace?: string };
 
@@ -24,7 +25,7 @@ export function zustandCommands(
 	if (names.length === 0) throw new Error("zustandCommands needs at least one store");
 
 	return featureCommands({
-		[opts.namespace ?? "store"]: {
+		[opts.namespace ?? ADAPTER_NAMESPACES.zustand]: {
 			inspect: command()
 				.input({ store: z.enum(names as [string, ...string[]]) })
 				.description(

@@ -1,3 +1,4 @@
+import { ADAPTER_NAMESPACES } from "./adapters/namespaces";
 import { lookup, type Registry } from "./core/command";
 import { toJsonSafe } from "./core/serialize";
 
@@ -179,14 +180,15 @@ export type UiCallersOptions = {
 	sources: readonly string[] | Readonly<Record<string, string>>;
 	/**
 	 * Namespaces whose commands have no control by design. Defaults to the
-	 * adapters' own namespaces: `store`, `nav`, `apollo` and `storage`. Add a
-	 * namespace the app gave an adapter with its `namespace` option.
+	 * built-in adapters' own namespaces: `apollo`, `nav`, `storage`, `store` and
+	 * `tinybase`. Passing a list replaces the default, so add a namespace the app
+	 * gave an adapter with its `namespace` option to `defaultExempt`.
 	 */
 	exempt?: readonly string[];
 };
 
 /** The namespaces the built-in adapters register under by default. */
-const ADAPTER_NAMESPACES = ["store", "nav", "apollo", "storage"];
+export const defaultExempt: readonly string[] = [...new Set(Object.values(ADAPTER_NAMESPACES))];
 
 /**
  * Checks that every feature command has a caller in the UI, and returns the
@@ -208,7 +210,7 @@ const ADAPTER_NAMESPACES = ["store", "nav", "apollo", "storage"];
 export function checkUiCallers(registry: Registry, opts: UiCallersOptions): ConformanceProblem[] {
 	const files = Array.isArray(opts.sources) ? opts.sources : Object.values(opts.sources);
 	const text = files.join("\n");
-	const exempt = new Set(opts.exempt ?? ADAPTER_NAMESPACES);
+	const exempt = new Set(opts.exempt ?? defaultExempt);
 	const problems: ConformanceProblem[] = [];
 
 	for (const name of Object.keys(registry)) {

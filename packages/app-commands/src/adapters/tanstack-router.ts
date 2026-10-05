@@ -3,6 +3,7 @@ import { z } from "zod";
 import { command } from "../command/builder";
 import { featureCommands } from "../command/tree";
 import type { Registry } from "../core/command";
+import { ADAPTER_NAMESPACES } from "./namespaces";
 
 type MatchLike = {
 	routeId: string;
@@ -80,7 +81,7 @@ export function tanstackRouterCommands(opts: TanStackRouterCommandsOptions): Reg
 	};
 
 	return featureCommands({
-		[opts.namespace ?? "nav"]: {
+		[opts.namespace ?? ADAPTER_NAMESPACES.navigation]: {
 			inspect: command()
 				.input({ key: z.enum(["current", "state", "routes"]).default("current") })
 				.description(

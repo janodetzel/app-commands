@@ -5,6 +5,7 @@ import { command } from "../command/builder";
 import type { StandardSchemaV1 } from "../command/standard-schema";
 import { featureCommands } from "../command/tree";
 import type { Registry } from "../core/command";
+import { ADAPTER_NAMESPACES } from "./namespaces";
 
 /**
  * The ref created with `createNavigationContainerRef`. A ref typed with the app's
@@ -34,7 +35,7 @@ export function navigationCommands(ref: NavigationRef, opts: NavigationCommandsO
 	const focusTimeoutMs = opts.focusTimeoutMs ?? 2_000;
 
 	return featureCommands({
-		[opts.namespace ?? "nav"]: {
+		[opts.namespace ?? ADAPTER_NAMESPACES.navigation]: {
 			inspect: command()
 				.input({ key: z.enum(["current", "state"]).default("current") })
 				.description(

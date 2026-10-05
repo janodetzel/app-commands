@@ -26,6 +26,7 @@ import { navigationCommands, type NavigationRef } from "../src/adapters/react-na
 import { tanstackRouterCommands, type TanStackRouterLike } from "../src/adapters/tanstack-router";
 import { tinybaseCommands } from "../src/adapters/tinybase";
 import { zustandCommands } from "../src/adapters/zustand";
+import { checkUiCallers } from "../src/conformance";
 import { buildRegistry, type Registry } from "../src/core/command";
 import { handleRequest } from "../src/core/handle";
 import { PROTOCOL_VERSION, type Response } from "../src/core/protocol";
@@ -1029,6 +1030,30 @@ describe("keyValueCommands", () => {
 });
 
 describe("the slices together", () => {
+	it("are each exempt from checkUiCallers by default, since no screen calls an adapter", () => {
+		const ref = createNavigationContainerRef<{ Home: undefined }>();
+		const client = new ApolloClient({ cache: new InMemoryCache(), link: ApolloLink.empty() });
+		const registries = {
+			apollo: apolloCommands(client),
+			expoRouter: expoRouterCommands({
+				router: fakeExpoRouter({}).router,
+				navigationRef: () => null,
+			}),
+			keyValue: keyValueCommands({ getItem: async () => null, getAllKeys: async () => [] }),
+			navigation: navigationCommands(ref as NavigationRef, { routes: z.enum(["Home"]) }),
+			tanstackRouter: tanstackRouterCommands({ router: () => undefined }),
+			tinybase: tinybaseCommands({ s: createTinybaseStore() }),
+			zustand: zustandCommands({ s: createStore(() => ({})) }),
+		};
+
+		for (const [adapter, registry] of Object.entries(registries)) {
+			expect({ adapter, problems: checkUiCallers(registry, { sources: [] }) }).toEqual({
+				adapter,
+				problems: [],
+			});
+		}
+	});
+
 	it("merge into one registry, and a clash between two adapters is named", () => {
 		const ref = createNavigationContainerRef<{ Home: undefined }>();
 		const routes = z.enum(["Home"]);

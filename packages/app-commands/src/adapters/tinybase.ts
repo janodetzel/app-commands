@@ -3,6 +3,7 @@ import { z } from "zod";
 import { command } from "../command/builder";
 import { featureCommands } from "../command/tree";
 import type { Registry } from "../core/command";
+import { ADAPTER_NAMESPACES } from "./namespaces";
 
 export type TinybaseCommandsOptions = {
 	namespace?: string;
@@ -83,7 +84,7 @@ export function tinybaseCommands(
 	const defaultLimit = opts.defaultLimit ?? 100;
 
 	return featureCommands({
-		[opts.namespace ?? "tinybase"]: {
+		[opts.namespace ?? ADAPTER_NAMESPACES.tinybase]: {
 			inspect: command()
 				.input({
 					store: (names ? z.enum(names as [string, ...string[]]) : z.string().min(1)).optional(),

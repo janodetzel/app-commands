@@ -612,8 +612,10 @@ expect(checkUiCallers(registry, { sources: screens })).toEqual([]);
 
 It finds a call by its text, `.<path below the namespace>(`, so call a command through
 its feature instance: `profileFeature.settings.unitButtonTapped(` for
-`profile.settings.unitButtonTapped`. The adapters' namespaces (`store`, `nav`, `apollo`,
-`storage`) are exempt; pass `exempt` to add one you renamed.
+`profile.settings.unitButtonTapped`. The built-in adapters' namespaces (`apollo`, `nav`,
+`storage`, `store`, `tinybase`) are exempt. `exempt` replaces that list, so to add a
+namespace you gave an adapter, extend `defaultExempt`:
+`checkUiCallers(registry, { sources, exempt: [...defaultExempt, "settings"] })`.
 
 ### Release builds
 
