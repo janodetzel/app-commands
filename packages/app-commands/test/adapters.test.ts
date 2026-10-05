@@ -911,6 +911,69 @@ describe("tinybaseCommands", () => {
 		);
 	});
 
+	it("lists the stores when called without one", async () => {
+		const { registry } = build();
+
+		expect(await call(registry, "tinybase.inspect", {})).toMatchObject({
+			ok: true,
+			result: { stores: ["sheets"] },
+		});
+		expect(failed(await call(registry, "tinybase.inspect", { table: "users" })).error).toMatch(
+			/give the 'store'/,
+		);
+	});
+
+	describe("with a source for stores created at runtime", () => {
+		// The way an app keeps one store per signed-in user or per open document.
+		const build = () => {
+			const live = new Map<string, ReturnType<typeof createTinybaseStore>>();
+			const registry = tinybaseCommands({
+				list: () => [...live.keys()],
+				get: (id) => live.get(id),
+			});
+			return { live, registry };
+		};
+
+		it("registers before any store exists, and reads one created afterwards", async () => {
+			const { live, registry } = build();
+			expect(await call(registry, "tinybase.inspect", {})).toMatchObject({
+				ok: true,
+				result: { stores: [] },
+			});
+
+			live.set("spreadsheetStore-123", populate(createTinybaseStore()));
+
+			expect(await call(registry, "tinybase.inspect", {})).toMatchObject({
+				ok: true,
+				result: { stores: ["spreadsheetStore-123"] },
+			});
+			expect(
+				await call(registry, "tinybase.inspect", {
+					store: "spreadsheetStore-123",
+					table: "users",
+					row: "u1",
+				}),
+			).toMatchObject({ ok: true, result: { name: "Ada" } });
+		});
+
+		it("fails for a store that is gone, and names the ones that exist", async () => {
+			const { live, registry } = build();
+			live.set("userStore-a", createTinybaseStore());
+			live.set("userStore-b", createTinybaseStore());
+			live.delete("userStore-a");
+
+			expect(
+				failed(await call(registry, "tinybase.inspect", { store: "userStore-a" })).error,
+			).toMatch(/no store "userStore-a"; there are "userStore-b"/);
+		});
+
+		it("says in the description that the stores are listed at call time", () => {
+			const { registry } = build();
+
+			expect(registry["tinybase.inspect"]!.description).toMatch(/list them first/);
+		});
+	});
+
 	it("exposes no way to write, and refuses to register with no store", () => {
 		expect(Object.keys(build().registry)).toEqual(["tinybase.inspect"]);
 		expect(() => tinybaseCommands({})).toThrow(/at least one store/);

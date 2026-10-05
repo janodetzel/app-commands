@@ -505,6 +505,20 @@ store:
 
 A table, row, value or prefix that is not there fails and names what the store does
 have. A `MergeableStore` reads as its merged content, without the CRDT bookkeeping.
+Without `--store`, `tinybase.inspect` returns `{ stores: [id] }`.
+
+A record fixes the stores when the registry is built, which is at module scope. When
+the app creates stores while it runs, one per signed-in user or per open document,
+pass `list` and `get` instead. The adapter calls them on every read, so a store
+created later can be inspected, and an id that is gone fails and names the ones
+that exist:
+
+```ts
+tinybaseCommands({
+	list: () => storeManager.ids(),
+	get: (id) => storeManager.get(id),
+});
+```
 
 ### Lint rules
 
